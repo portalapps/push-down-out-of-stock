@@ -10,7 +10,7 @@ client_id = "534b65fe48ece1bede46baebb7f69bc7"
 name = "Push Down Out of Stock"
 
 # The public URL where our app is hosted (updated automatically during dev)
-application_url = "https://example.com"
+application_url = "https://push-down-out-of-stock.vercel.app"
 
 # Whether our app runs inside Shopify admin (true) or in a separate window (false)
 # Embedded apps feel more integrated and are the recommended approach
