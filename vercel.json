@@ -1,13 +1,7 @@
 {
-  "buildCommand": "npm run build",
-  "devCommand": "npm run dev",
-  "installCommand": "npm install",
   "framework": "remix",
-  "functions": {
-    "app/entry.server.tsx": {
-      "includeFiles": "node_modules/prisma/engines/**"
-    }
-  },
+  "buildCommand": "npm run build",
+  "installCommand": "npm install",
   "build": {
     "env": {
       "ENABLE_VC_BUILD": "1"
