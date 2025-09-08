@@ -1,0 +1,62 @@
+# MAIN SHOPIFY APP CONFIGURATION
+# This file tells Shopify everything about our app - who we are, what we can do, and how to reach us
+# Learn more about configuring your app at https://shopify.dev/docs/apps/tools/cli/configuration
+
+# BASIC APP IDENTITY
+# Our unique app identifier assigned by Shopify when we created the app
+client_id = "534b65fe48ece1bede46baebb7f69bc7"
+
+# The name merchants see in their app store and admin panel
+name = "Push Down Out of Stock"
+
+# The public URL where our app is hosted (updated automatically during dev)
+application_url = "https://example.com"
+
+# Whether our app runs inside Shopify admin (true) or in a separate window (false)
+# Embedded apps feel more integrated and are the recommended approach
+embedded = true
+
+# BUILD CONFIGURATION
+# Settings that control how our app is built and deployed
+[build]
+# Automatically update our app URLs when running in development mode
+automatically_update_urls_on_dev = true
+
+# WEBHOOK CONFIGURATION
+# Webhooks are notifications Shopify sends us when certain events happen
+[webhooks]
+# Which version of Shopify's API we want to use for webhooks
+api_version = "2025-07"
+
+  # SCOPES UPDATE WEBHOOK
+  # Fired when our app's permissions change (user grants/revokes access)
+  [[webhooks.subscriptions]]
+  topics = [ "app/scopes_update" ]
+  uri = "/webhooks/app/scopes_update"
+
+  # APP UNINSTALLED WEBHOOK  
+  # Fired when a merchant uninstalls our app (good time to clean up their data)
+  [[webhooks.subscriptions]]
+  topics = [ "app/uninstalled" ]
+  uri = "/webhooks/app/uninstalled"
+
+# ACCESS PERMISSIONS
+# These are the permissions our app needs to function properly
+[access_scopes]
+# The specific permissions we're requesting from merchants
+# read_products: See product details, variants, inventory
+# write_products: Modify products and variants
+# read_product_listings: See collections and their products
+# write_product_listings: Reorder products within collections (our core feature!)
+scopes = "read_products,write_products,read_product_listings,write_product_listings"
+
+# Permissions that are nice-to-have but not required
+optional_scopes = [ ]
+
+# Use the modern OAuth flow (recommended)
+use_legacy_install_flow = false
+
+# AUTHENTICATION SETTINGS
+[auth]
+# Additional redirect URLs for OAuth (empty means use defaults)
+redirect_urls = [ ]

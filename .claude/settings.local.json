@@ -1,0 +1,22 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npx prisma generate:*)",
+      "Bash(npx prisma migrate dev:*)",
+      "Bash(npm run dev:*)",
+      "WebSearch",
+      "Bash(npm run build:*)",
+      "WebFetch(domain:polaris-react.shopify.com)",
+      "WebFetch(domain:shopify.dev)",
+      "Bash(move:*)",
+      "Bash(npx tsc:*)",
+      "Bash(del node_modules\\.prisma\\client\\query_engine-windows.dll.node)",
+      "Bash(shopify app generate:*)",
+      "Bash(shopify app:*)",
+      "Bash(npm install:*)",
+      "Bash(git add:*)"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}

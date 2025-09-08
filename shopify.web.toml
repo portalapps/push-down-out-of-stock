@@ -1,0 +1,22 @@
+# DEVELOPMENT SERVER CONFIGURATION
+# This file tells the Shopify CLI how to run our app during development
+
+# The name of our web service (can be anything, just for identification)
+name = "remix"
+
+# What parts of the app this service handles
+# frontend: Serves the user interface (React components, HTML, CSS)
+# backend: Handles server-side logic (API calls, database operations, authentication)
+roles = ["frontend", "backend"]
+
+# Where Shopify should send webhook notifications during development
+# This matches one of our webhook handlers defined in shopify.app.toml
+webhooks_path = "/webhooks/app/uninstalled"
+
+# DEVELOPMENT COMMANDS
+[commands]
+# The command that actually starts our development server
+# npm exec remix vite:dev = Start Remix with Vite bundler in development mode
+# Note: We removed the Prisma predev command due to Windows file permission issues
+# You may need to run "npx prisma generate" manually if you change the database schema
+dev = "npm exec remix vite:dev"

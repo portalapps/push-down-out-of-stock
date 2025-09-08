@@ -1,0 +1,75 @@
+// DATABASE SCHEMA DEFINITION
+// This file defines the structure of our database tables and relationships
+// Prisma reads this file and generates type-safe database client code
+// Learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// PRISMA CLIENT GENERATOR
+// This tells Prisma to generate a JavaScript/TypeScript client for database operations
+generator client {
+  provider = "prisma-client-js"
+}
+
+// DATABASE CONNECTION CONFIGURATION
+// Defines which database we're using and how to connect to it
+// Note: Some adapters may set a maximum length for String fields by default
+// See https://www.prisma.io/docs/orm/reference/prisma-schema-reference#string for more information
+datasource db {
+  provider = "sqlite"           // We're using SQLite for development (easy setup, no external dependencies)
+  url      = "file:dev.sqlite"  // Database file location (creates dev.sqlite in project root)
+}
+
+// SESSION TABLE
+// Stores Shopify authentication sessions and user information
+// This table is managed automatically by the Shopify app framework
+model Session {
+  id            String    @id           // Unique session identifier (primary key)
+  shop          String                  // Shop domain (e.g., "my-store.myshopify.com")
+  state         String                  // OAuth state parameter for security
+  isOnline      Boolean   @default(false) // Whether this is an online (user) or offline (app) session
+  scope         String?                 // Granted permissions (comma-separated list)
+  expires       DateTime?               // When this session expires (null for offline sessions)
+  accessToken   String                  // Token used to make API calls to Shopify
+  userId        BigInt?                 // Shopify user ID (for online sessions)
+  firstName     String?                 // User's first name
+  lastName      String?                 // User's last name  
+  email         String?                 // User's email address
+  accountOwner  Boolean   @default(false) // Whether user owns the Shopify account
+  locale        String?                 // User's language preference
+  collaborator  Boolean?  @default(false) // Whether user is a staff member
+  emailVerified Boolean?  @default(false) // Whether user's email is verified
+}
+
+// COLLECTION SETTINGS TABLE
+// Stores which collections have automatic sorting enabled and their configuration
+model CollectionSetting {
+  id           String   @id @default(cuid()) // Unique identifier for this setting
+  shop         String                        // Which shop this setting belongs to
+  collectionId String                        // Shopify collection ID (e.g., "gid://shopify/Collection/123")
+  sortType     String                        // How products should be sorted within the collection
+                                            // Possible values: "bestsellers", "price_asc", "price_desc", 
+                                            // "alpha_asc", "alpha_desc", "date_asc", "date_desc"
+  enabled      Boolean  @default(true)       // Whether sorting is currently active for this collection
+  createdAt    DateTime @default(now())      // When this setting was first created
+  updatedAt    DateTime @updatedAt           // When this setting was last modified (auto-updated)
+
+  // UNIQUE CONSTRAINT: Each shop can only have one setting per collection
+  // This prevents duplicate entries and ensures clean data
+  @@unique([shop, collectionId])
+}
+
+// EXCLUSION TAGS TABLE  
+// Stores product tags that should be excluded from automatic sorting per collection
+// Products with these tags will maintain their original position in collections
+model ExclusionTag {
+  id           String   @id @default(cuid()) // Unique identifier for this exclusion tag
+  shop         String                        // Which shop this tag belongs to
+  collectionId String                        // Which collection this exclusion applies to
+  tag          String                        // The actual tag name (e.g., "preorder", "coming-soon", "backorder")
+                                            // Products with these tags won't be automatically sorted
+  createdAt    DateTime @default(now())      // When this tag was added to exclusions
+  updatedAt    DateTime @updatedAt           // When this tag was last modified (auto-updated)
+
+  // UNIQUE CONSTRAINT: Each shop/collection can only exclude a tag once
+  // This prevents duplicate exclusion entries per collection
+  @@unique([shop, collectionId, tag])
+}
