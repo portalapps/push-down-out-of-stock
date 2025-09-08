@@ -14,7 +14,11 @@
       "Bash(shopify app generate:*)",
       "Bash(shopify app:*)",
       "Bash(npm install:*)",
-      "Bash(git add:*)"
+      "Bash(git add:*)",
+      "Bash(git commit:*)",
+      "Bash(git config:*)",
+      "Bash(ping:*)",
+      "Bash(git push:*)"
     ],
     "deny": [],
     "ask": []
