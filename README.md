@@ -374,3 +374,4 @@ This template uses [Remix](https://remix.run). The following Shopify tools are a
 # Force deployment test
 # Git config fixed - should deploy now
 # Testing reconnected Git integration
+# Repository is now public - testing deployment
