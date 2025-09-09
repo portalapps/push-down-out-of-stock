@@ -18,7 +18,16 @@
       "Bash(git commit:*)",
       "Bash(git config:*)",
       "Bash(ping:*)",
-      "Bash(git push:*)"
+      "Bash(git push:*)",
+      "WebFetch(domain:push-down-out-of-stock.vercel.app)",
+      "Bash(npx prisma migrate:*)",
+      "WebFetch(domain:supabase.com)",
+      "Bash(npx prisma:*)",
+      "Bash(vercel env add:*)",
+      "Bash(vercel login:*)",
+      "Bash(vercel env rm:*)",
+      "Bash(npm run deploy:*)",
+      "Bash(find:*)"
     ],
     "deny": [],
     "ask": []

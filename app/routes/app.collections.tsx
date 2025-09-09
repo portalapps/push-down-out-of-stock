@@ -2,8 +2,8 @@
 // Modern Polaris-based interface for managing collection sorting
 
 // REMIX FRAMEWORK IMPORTS
-import type { LoaderFunctionArgs, ActionFunctionArgs } from "@remix-run/node";
-import { json } from "@remix-run/node";
+import type { LoaderFunctionArgs, ActionFunctionArgs } from "@vercel/remix";
+import { json } from "@vercel/remix";
 import { useLoaderData, useFetcher } from "@remix-run/react";
 
 // REACT IMPORTS

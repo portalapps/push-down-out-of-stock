@@ -14,8 +14,8 @@ generator client {
 // Note: Some adapters may set a maximum length for String fields by default
 // See https://www.prisma.io/docs/orm/reference/prisma-schema-reference#string for more information
 datasource db {
-  provider = "sqlite"           // We're using SQLite for development (easy setup, no external dependencies)
-  url      = "file:dev.sqlite"  // Database file location (creates dev.sqlite in project root)
+  provider = "postgresql"       // Using PostgreSQL via Supabase for production scalability
+  url      = env("DATABASE_URL") // Database connection string from environment variables
 }
 
 // SESSION TABLE

@@ -3,8 +3,8 @@
 // Separated from the main collections page to keep UX clean and focused
 
 // REMIX FRAMEWORK IMPORTS
-import type { LoaderFunctionArgs, ActionFunctionArgs } from "@remix-run/node";
-import { json } from "@remix-run/node";
+import type { LoaderFunctionArgs, ActionFunctionArgs } from "@vercel/remix";
+import { json } from "@vercel/remix";
 import { useLoaderData } from "@remix-run/react";
 
 // REACT IMPORTS
