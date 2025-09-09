@@ -23,5 +23,6 @@
   },
   "env": {
     "NODE_ENV": "production"
-  }
+  },
+  "_comment": "Force deploy - Latest fixes deployed"
 }
