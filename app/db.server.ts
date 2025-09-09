@@ -23,15 +23,22 @@ if (process.env.NODE_ENV !== "production") {
 }
 
 // DATABASE CONNECTION CREATION
+// Force PostgreSQL connection URL to override any SQLite configuration
+const DATABASE_URL = process.env.DATABASE_URL || "postgresql://postgres.gbfvnmdjgnggnrvhyxgp:_MQZQ6BTSmsWy%2FY@aws-1-us-east-2.pooler.supabase.com:5432/postgres";
+
 // Use the globally cached connection in development, or create a new one in production
-// The ?? operator means "use global.prismaGlobal if it exists, otherwise create new PrismaClient"
 const prisma = global.prismaGlobal ?? new PrismaClient({
   datasources: {
     db: {
-      url: process.env.DATABASE_URL
+      url: DATABASE_URL
     }
   }
 });
+
+// Also set global for development caching
+if (process.env.NODE_ENV !== "production") {
+  global.prismaGlobal = prisma;
+}
 
 // Export the database connection for use throughout our app
 // Other files will import this to perform database operations like:

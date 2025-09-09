@@ -27,7 +27,8 @@
       "Bash(vercel login:*)",
       "Bash(vercel env rm:*)",
       "Bash(npm run deploy:*)",
-      "Bash(find:*)"
+      "Bash(find:*)",
+      "WebFetch(domain:www.npmjs.com)"
     ],
     "deny": [],
     "ask": []
