@@ -5,6 +5,9 @@ import prisma from "./db.server";
 export class CustomPrismaSessionStorage implements SessionStorage {
   constructor() {
     console.log("[DEBUG] CustomPrismaSessionStorage initialized");
+    console.log("[DEBUG] NODE_ENV:", process.env.NODE_ENV);
+    console.log("[DEBUG] DATABASE_URL available:", !!process.env.DATABASE_URL);
+    console.log("[DEBUG] SHOPIFY_API_KEY available:", !!process.env.SHOPIFY_API_KEY);
   }
 
   async storeSession(session: Session): Promise<boolean> {
