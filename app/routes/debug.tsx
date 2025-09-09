@@ -1,7 +1,20 @@
+import prisma from "../db.server";
+
 export async function loader({ request }: { request: Request }) {
   try {
-    // Simple debug route - no Shopify auth, just see if basic routing works
     const url = new URL(request.url);
+    
+    // Test database connection
+    let dbTest = "Not tested";
+    let dbError = null;
+    try {
+      await prisma.$queryRaw`SELECT 1 as test`;
+      dbTest = "SUCCESS - Connected to PostgreSQL";
+    } catch (error: any) {
+      dbTest = "FAILED";
+      dbError = error.message;
+    }
+
     return new Response(`
       <html>
         <body>
@@ -13,8 +26,11 @@ export async function loader({ request }: { request: Request }) {
             <li>SHOPIFY_API_KEY: ${process.env.SHOPIFY_API_KEY ? 'SET' : 'MISSING'}</li>
             <li>SHOPIFY_API_SECRET: ${process.env.SHOPIFY_API_SECRET ? 'SET' : 'MISSING'}</li>
             <li>SHOPIFY_APP_SESSION_SECRET: ${process.env.SHOPIFY_APP_SESSION_SECRET ? 'SET' : 'MISSING'}</li>
-            <li>DATABASE_URL: ${process.env.DATABASE_URL ? 'SET' : 'MISSING'}</li>
+            <li>DATABASE_URL: ${process.env.DATABASE_URL ? process.env.DATABASE_URL.substring(0, 30) + '...' : 'MISSING'}</li>
           </ul>
+          <h2>Database Connection Test:</h2>
+          <p>Status: ${dbTest}</p>
+          ${dbError ? `<p>Error: ${dbError}</p>` : ''}
         </body>
       </html>
     `, {
