@@ -4,8 +4,8 @@ generator client {
 
 datasource db {
   provider = "postgresql"
-  url      = env("POSTGRES_PRISMA_URL") // uses connection pooling
-  directUrl = env("POSTGRES_URL_NON_POOLING") // uses a direct connection
+  url      = "postgresql://postgres.gbfvnmdjgnggnrvhyxgp:_MQZQ6BTSmsWy%2FY@aws-1-us-east-2.pooler.supabase.com:6543/postgres?pgbouncer=true&connect_timeout=15"
+  directUrl = "postgresql://postgres.gbfvnmdjgnggnrvhyxgp:_MQZQ6BTSmsWy%2FY@aws-1-us-east-2.pooler.supabase.com:5432/postgres"
 }
 
 model Session {
