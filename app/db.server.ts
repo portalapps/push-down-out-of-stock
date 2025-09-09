@@ -26,13 +26,17 @@ if (process.env.NODE_ENV !== "production") {
 // Force PostgreSQL connection URL to override any SQLite configuration
 const DATABASE_URL = process.env.DATABASE_URL || "postgresql://postgres.gbfvnmdjgnggnrvhyxgp:_MQZQ6BTSmsWy%2FY@aws-1-us-east-2.pooler.supabase.com:5432/postgres";
 
+// Log database URL for debugging (masking password)
+console.log("[DEBUG] Using DATABASE_URL:", DATABASE_URL.replace(/:[^:@]+@/, ":***@"));
+
 // Use the globally cached connection in development, or create a new one in production
 const prisma = global.prismaGlobal ?? new PrismaClient({
   datasources: {
     db: {
       url: DATABASE_URL
     }
-  }
+  },
+  log: process.env.NODE_ENV === "production" ? ["error"] : ["query", "info", "warn", "error"]
 });
 
 // Also set global for development caching
