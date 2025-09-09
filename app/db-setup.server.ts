@@ -14,7 +14,16 @@ export async function ensureDbSetup() {
 async function setupDatabase() {
   try {
     console.log("Setting up database...");
-    const prisma = new PrismaClient();
+    console.log("DATABASE_URL available:", !!process.env.DATABASE_URL);
+    console.log("DATABASE_URL preview:", process.env.DATABASE_URL?.substring(0, 20) + "...");
+    
+    const prisma = new PrismaClient({
+      datasources: {
+        db: {
+          url: process.env.DATABASE_URL
+        }
+      }
+    });
     
     // Try to create the Session table if it doesn't exist
     await prisma.$executeRaw`

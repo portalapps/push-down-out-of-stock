@@ -25,7 +25,13 @@ if (process.env.NODE_ENV !== "production") {
 // DATABASE CONNECTION CREATION
 // Use the globally cached connection in development, or create a new one in production
 // The ?? operator means "use global.prismaGlobal if it exists, otherwise create new PrismaClient"
-const prisma = global.prismaGlobal ?? new PrismaClient();
+const prisma = global.prismaGlobal ?? new PrismaClient({
+  datasources: {
+    db: {
+      url: process.env.DATABASE_URL
+    }
+  }
+});
 
 // Export the database connection for use throughout our app
 // Other files will import this to perform database operations like:
