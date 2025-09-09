@@ -6,5 +6,10 @@
     "env": {
       "ENABLE_VC_BUILD": "1"
     }
+  },
+  "functions": {
+    "app/routes/**/*.tsx": {
+      "maxDuration": 30
+    }
   }
 }
