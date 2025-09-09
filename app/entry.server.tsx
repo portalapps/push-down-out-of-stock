@@ -4,10 +4,8 @@ import { RemixServer } from "@remix-run/react";
 import { isbot } from "isbot";
 import { addDocumentResponseHeaders } from "./shopify.server";
 
-// Import with CommonJS compatibility for Vercel
-const vercelRemix = require("@vercel/remix");
-const { createReadableStreamFromReadable } = vercelRemix;
-export type { EntryContext } from "@vercel/remix";
+// Import with dynamic import for Vercel compatibility
+import type { EntryContext } from "@vercel/remix";
 
 export const streamTimeout = 5000;
 
@@ -22,6 +20,9 @@ export default async function handleRequest(
   const callbackName = isbot(userAgent ?? '')
     ? "onAllReady"
     : "onShellReady";
+
+  // Dynamically import Vercel Remix utilities
+  const { createReadableStreamFromReadable } = await import("@vercel/remix");
 
   return new Promise((resolve, reject) => {
     const { pipe, abort } = renderToPipeableStream(
