@@ -2,7 +2,7 @@
   "name": "push-down-out-of-stock",
   "private": true,
   "scripts": {
-    "build": "rm -rf node_modules/.prisma && prisma generate && prisma migrate deploy && remix vite:build",
+    "build": "echo 'DEBUG: POSTGRES_PRISMA_URL=' && echo $POSTGRES_PRISMA_URL && echo 'DEBUG: POSTGRES_URL_NON_POOLING=' && echo $POSTGRES_URL_NON_POOLING && rm -rf node_modules/.prisma && prisma generate && prisma migrate deploy && remix vite:build",
     "postinstall": "rm -rf node_modules/.prisma && prisma generate",
     "dev": "shopify app dev",
     "config:link": "shopify app config link",
