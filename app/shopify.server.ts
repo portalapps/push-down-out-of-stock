@@ -15,9 +15,8 @@ import {
 // Import Prisma session storage (stores user sessions in our database)
 import { PrismaSessionStorage } from "@shopify/shopify-app-session-storage-prisma";
 
-// Import our database connection and setup
+// Import our database connection
 import prisma from "./db.server";
-import { ensureDbSetup } from "./db-setup.server";
 
 // MAIN SHOPIFY APP CONFIGURATION
 // This creates the core app instance that handles all Shopify interactions
@@ -78,6 +77,3 @@ export const registerWebhooks = shopify.registerWebhooks; // Register webhook su
 
 // Session management
 export const sessionStorage = shopify.sessionStorage;     // Access to session storage methods
-
-// Initialize database tables on startup
-ensureDbSetup().catch(console.error);

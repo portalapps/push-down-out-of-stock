@@ -2,7 +2,8 @@
   "name": "push-down-out-of-stock",
   "private": true,
   "scripts": {
-    "build": "FORCE_COLOR=1 DATABASE_URL='postgresql://postgres.gbfvnmdjgnggnrvhyxgp:_MQZQ6BTSmsWy/Y@aws-1-us-east-2.pooler.supabase.com:5432/postgres' prisma generate && remix vite:build",
+    "build": "prisma generate && remix vite:build",
+    "postinstall": "prisma generate",
     "dev": "shopify app dev",
     "config:link": "shopify app config link",
     "generate": "shopify app generate",
