@@ -12,8 +12,9 @@ import {
   shopifyApp,          // Main function that creates our Shopify app instance
 } from "@shopify/shopify-app-remix/server";
 
-// Import our custom session storage
-import { CustomPrismaSessionStorage } from "./session-storage.server";
+// Import official Prisma session storage
+import { PrismaSessionStorage } from "@shopify/shopify-app-session-storage-prisma";
+import prisma from "./db.server";
 
 // MAIN SHOPIFY APP CONFIGURATION
 // This creates the core app instance that handles all Shopify interactions
@@ -34,8 +35,8 @@ const shopify = shopifyApp({
   // URL prefix for OAuth authentication routes
   authPathPrefix: "/auth",
   
-  // How to store user sessions (we use our custom PostgreSQL session storage)
-  sessionStorage: new CustomPrismaSessionStorage(),
+  // How to store user sessions (using official Prisma session storage)
+  sessionStorage: new PrismaSessionStorage(prisma),
   
   // How our app is distributed (App Store means it's publicly available)
   distribution: AppDistribution.AppStore,
