@@ -28,7 +28,9 @@
       "Bash(vercel env rm:*)",
       "Bash(npm run deploy:*)",
       "Bash(find:*)",
-      "WebFetch(domain:www.npmjs.com)"
+      "WebFetch(domain:www.npmjs.com)",
+      "Bash(DATABASE_URL='postgresql://postgres.gbfvnmdjgnggnrvhyxgp:_MQZQ6BTSmsWy%2FY@aws-1-us-east-2.pooler.supabase.com:5432/postgres' npx prisma generate)",
+      "Bash(vercel env:*)"
     ],
     "deny": [],
     "ask": []
