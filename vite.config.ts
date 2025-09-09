@@ -18,8 +18,11 @@ if (
   delete process.env.HOST;
 }
 
-const host = new URL(process.env.SHOPIFY_APP_URL || "http://localhost")
-  .hostname;
+const shopifyAppUrl = process.env.SHOPIFY_APP_URL && process.env.SHOPIFY_APP_URL !== '$SHOPIFY_APP_URL' 
+  ? process.env.SHOPIFY_APP_URL 
+  : "https://push-down-out-of-stock.vercel.app";
+  
+const host = new URL(shopifyAppUrl).hostname;
 
 let hmrConfig;
 if (host === "localhost") {
