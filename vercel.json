@@ -16,11 +16,6 @@
       "SHOPIFY_APP_SESSION_SECRET": "$SHOPIFY_APP_SESSION_SECRET"
     }
   },
-  "functions": {
-    "app/routes/**/*.tsx": {
-      "maxDuration": 30
-    }
-  },
   "env": {
     "NODE_ENV": "production"
   }
