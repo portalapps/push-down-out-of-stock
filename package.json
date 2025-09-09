@@ -2,8 +2,8 @@
   "name": "push-down-out-of-stock",
   "private": true,
   "scripts": {
-    "build": "prisma generate && prisma migrate deploy && remix vite:build",
-    "postinstall": "prisma generate",
+    "build": "rm -rf node_modules/.prisma && prisma generate && prisma migrate deploy && remix vite:build",
+    "postinstall": "rm -rf node_modules/.prisma && prisma generate",
     "dev": "shopify app dev",
     "config:link": "shopify app config link",
     "generate": "shopify app generate",
