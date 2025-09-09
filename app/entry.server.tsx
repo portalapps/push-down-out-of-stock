@@ -1,12 +1,13 @@
 import { PassThrough } from "stream";
 import { renderToPipeableStream } from "react-dom/server";
 import { RemixServer } from "@remix-run/react";
-import {
-  createReadableStreamFromReadable,
-  type EntryContext,
-} from "@vercel/remix";
 import { isbot } from "isbot";
 import { addDocumentResponseHeaders } from "./shopify.server";
+
+// Import with CommonJS compatibility for Vercel
+const vercelRemix = require("@vercel/remix");
+const { createReadableStreamFromReadable } = vercelRemix;
+export type { EntryContext } from "@vercel/remix";
 
 export const streamTimeout = 5000;
 
