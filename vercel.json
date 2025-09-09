@@ -4,7 +4,8 @@
   "installCommand": "npm install --legacy-peer-deps",
   "build": {
     "env": {
-      "ENABLE_VC_BUILD": "1"
+      "ENABLE_VC_BUILD": "1",
+      "DATABASE_URL": "$DATABASE_URL"
     }
   },
   "functions": {
