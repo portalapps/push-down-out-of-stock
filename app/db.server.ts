@@ -24,7 +24,8 @@ if (process.env.NODE_ENV !== "production") {
 
 // DATABASE CONNECTION CREATION
 // Force PostgreSQL connection URL to override any SQLite configuration
-const DATABASE_URL = process.env.DATABASE_URL || "postgresql://postgres.gbfvnmdjgnggnrvhyxgp:_MQZQ6BTSmsWy%2FY@aws-1-us-east-2.pooler.supabase.com:6543/postgres?pgbouncer=true&connection_limit=1&pool_timeout=30";
+// Force the serverless-optimized connection string for production
+const DATABASE_URL = process.env.DATABASE_URL || "postgresql://postgres.gbfvnmdjgnggnrvhyxgp:_MQZQ6BTSmsWy%2FY@aws-1-us-east-2.pooler.supabase.com:6543/postgres?pgbouncer=true&connection_limit=1";
 
 // Log database URL for debugging (masking password)
 console.log("[DEBUG] Using DATABASE_URL:", DATABASE_URL.replace(/:[^:@]+@/, ":***@"));
