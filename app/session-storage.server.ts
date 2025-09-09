@@ -3,7 +3,12 @@ import { SessionStorage } from "@shopify/shopify-app-remix/server";
 import prisma from "./db.server";
 
 export class CustomPrismaSessionStorage implements SessionStorage {
+  constructor() {
+    console.log("[DEBUG] CustomPrismaSessionStorage initialized");
+  }
+
   async storeSession(session: Session): Promise<boolean> {
+    console.log("[DEBUG] CustomPrismaSessionStorage.storeSession called for session:", session.id);
     try {
       await prisma.session.upsert({
         where: { id: session.id },
@@ -49,6 +54,7 @@ export class CustomPrismaSessionStorage implements SessionStorage {
   }
 
   async loadSession(id: string): Promise<Session | undefined> {
+    console.log("[DEBUG] CustomPrismaSessionStorage.loadSession called for id:", id);
     try {
       const sessionData = await prisma.session.findUnique({
         where: { id },
