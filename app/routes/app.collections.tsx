@@ -280,7 +280,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
       const exclusionTagsStr = formData.get('exclusionTags')?.toString();
       const exclusionTags = exclusionTagsStr ? JSON.parse(exclusionTagsStr) : [];
       
-      console.log('Received save request:', { collectionId, enabled, sortType, exclusionTags });
+      console.log('📥 updateSetting action received:', { collectionId, enabled, sortType, exclusionTags });
       
       // Upsert collection setting (create or update)
       await db.collectionSetting.upsert({
@@ -335,6 +335,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
         }
       }
       
+      console.log('✅ updateSetting completed successfully:', { collectionId, enabled, sortType });
       return json({ success: true });
     } catch (error) {
       console.error('❌ Error saving collection setting:', error);
@@ -557,7 +558,15 @@ export default function Collections() {
 
   // EVENT HANDLERS
   const handleStatusToggle = useCallback(async (collectionId: string) => {
-    const newEnabled = !collectionSettings[collectionId]?.enabled;
+    const currentEnabled = collectionSettings[collectionId]?.enabled;
+    const newEnabled = !currentEnabled;
+    
+    console.log('🔄 handleStatusToggle called:', { 
+      collectionId, 
+      currentEnabled, 
+      newEnabled,
+      currentSettings: collectionSettings[collectionId] 
+    });
     
     // Update local state immediately
     setCollectionSettings(prev => ({
@@ -570,6 +579,7 @@ export default function Collections() {
       }
     }));
     
+    console.log('💾 About to call autoSave with enabled:', newEnabled);
     // Auto-save to database
     await autoSave(collectionId, { enabled: newEnabled });
     
