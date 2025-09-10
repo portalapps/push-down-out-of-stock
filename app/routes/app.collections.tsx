@@ -221,6 +221,14 @@ export const action = async ({ request }: ActionFunctionArgs) => {
         inStockCount: inStock.length,
         outOfStockCount: outOfStock.length 
       });
+      
+      // Debug: log the actual order being sent to Shopify
+      console.log('🎯 IN-STOCK products (staying at top):', inStock.map(p => p.title));
+      console.log('❌ OUT-OF-STOCK products (moving to bottom):', outOfStock.map(p => p.title));
+      console.log('📋 Final product order (top to bottom):', [
+        ...inStock.map(p => p.title),
+        ...outOfStock.map(p => p.title)
+      ]);
 
       // Apply the new order to the collection via Shopify API
       const reorderResult = await reorderCollectionProducts(
