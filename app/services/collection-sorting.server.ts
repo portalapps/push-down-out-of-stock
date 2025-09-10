@@ -150,10 +150,10 @@ export async function fetchCollectionProducts(
           availableForSale: vEdge.node.availableForSale || false,
         }));
 
-        // Determine if product is in stock (any variant has inventory > 0)
-        const isInStock = variants.some(variant => 
-          variant.inventoryQuantity > 0 && variant.availableForSale
-        );
+        // Determine if product is in stock
+        // Products are considered "in stock" if they're available for sale
+        // This includes products set to "continue selling when out of stock"
+        const isInStock = variants.some(variant => variant.availableForSale);
 
         // Debug logging for stock detection
         console.log(`📦 Product: ${product.title}`);
