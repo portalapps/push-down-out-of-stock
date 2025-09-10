@@ -915,9 +915,12 @@ export default function Collections() {
         <IndexTable.Cell>
           <div
             onClick={(e) => {
-              e.stopPropagation();
               console.log('🖱️ Badge clicked for collection:', id);
+              console.log('🖱️ Current event:', e);
+              console.log('🖱️ About to call handleStatusToggle...');
+              e.stopPropagation();
               handleStatusToggle(id);
+              console.log('🖱️ Called handleStatusToggle');
             }}
             style={{ cursor: 'pointer', display: 'inline-block' }}
           >
