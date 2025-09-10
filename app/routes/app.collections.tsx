@@ -1033,6 +1033,7 @@ export default function Collections() {
               placeholder="Add exclusion tag"
               label="Exclusion tags"
               labelHidden={true}
+              disabled={!isEnabled}
             />
           </div>
         </IndexTable.Cell>

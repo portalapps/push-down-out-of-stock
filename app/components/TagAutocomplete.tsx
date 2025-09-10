@@ -30,6 +30,8 @@ interface TagAutocompleteProps {
   label?: string;
   /** Whether to hide the label visually */
   labelHidden?: boolean;
+  /** Whether the component is disabled */
+  disabled?: boolean;
 }
 
 export function TagAutocomplete({
@@ -40,6 +42,7 @@ export function TagAutocomplete({
   placeholder = "Add tag",
   label = "Add tag",
   labelHidden = true,
+  disabled = false,
 }: TagAutocompleteProps) {
   // Validate props
   if (!onAddTag || !onRemoveTag) {
@@ -53,8 +56,10 @@ export function TagAutocomplete({
   const [isFocused, setIsFocused] = useState(false);
   const [showInput, setShowInput] = useState(false); // Controls whether the input box is visible
   const [dropdownPosition, setDropdownPosition] = useState({ top: 0, left: 0, width: 0 });
+  const [floatingInputPosition, setFloatingInputPosition] = useState({ top: 0, left: 0, width: 0 });
   const containerRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const plusButtonRef = useRef<HTMLButtonElement>(null);
 
   // FILTER SUGGESTIONS BASED ON INPUT
   const suggestions = useMemo(() => {
@@ -126,13 +131,26 @@ export function TagAutocomplete({
 
   // HANDLE + BUTTON CLICK
   const handlePlusClick = useCallback(() => {
+    if (disabled) return;
+    
     setShowInput(true);
     setIsFocused(true);
+    
+    // Calculate floating input position based on + button
+    if (plusButtonRef.current) {
+      const rect = plusButtonRef.current.getBoundingClientRect();
+      setFloatingInputPosition({
+        top: rect.bottom + 8, // 8px gap below button
+        left: rect.left,
+        width: 300, // Fixed width for floating input
+      });
+    }
+    
     // Focus the input after it becomes visible
     setTimeout(() => {
       inputRef.current?.focus();
     }, 10);
-  }, []);
+  }, [disabled]);
 
   // HANDLE INPUT CLOSE (Escape or click outside)
   const handleInputClose = useCallback(() => {
@@ -271,31 +289,74 @@ export function TagAutocomplete({
   }, [showInput, handleInputClose]);
 
   return (
-    <div ref={containerRef} style={{ position: 'relative', width: '100%' }}>
-      {/* SELECTED TAGS AND + BUTTON */}
-      <InlineStack gap="100" wrap align="center">
-        {/* SELECTED TAGS */}
-        {selectedTags.map((tag) => (
-          <Tag key={tag} onRemove={() => onRemoveTag(tag)}>
-            {tag}
-          </Tag>
-        ))}
-        
-        {/* + BUTTON (only show when input is not visible) */}
-        {!showInput && (
-          <Button
-            icon={PlusIcon}
-            variant="plain"
-            onClick={handlePlusClick}
-            accessibilityLabel={placeholder || "Add tag"}
-            size="micro"
-          />
-        )}
-      </InlineStack>
+    <>
+      <div ref={containerRef} style={{ position: 'relative', width: '100%' }}>
+        {/* SELECTED TAGS AND + BUTTON */}
+        <InlineStack gap="100" wrap align="start">
+          {/* SELECTED TAGS */}
+          {selectedTags.map((tag) => (
+            <Tag key={tag} onRemove={disabled ? undefined : () => onRemoveTag(tag)}>
+              {tag}
+            </Tag>
+          ))}
+          
+          {/* + BUTTON (only show when input is not visible) */}
+          {!showInput && (
+            <button
+              ref={plusButtonRef}
+              onClick={handlePlusClick}
+              disabled={disabled}
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                width: '24px',
+                height: '24px',
+                borderRadius: '4px',
+                border: '1px solid var(--p-color-border)',
+                backgroundColor: disabled ? 'var(--p-color-bg-surface-disabled)' : 'var(--p-color-bg-surface)',
+                color: disabled ? 'var(--p-color-text-disabled)' : 'var(--p-color-text)',
+                cursor: disabled ? 'not-allowed' : 'pointer',
+                fontSize: '14px',
+                fontWeight: '500',
+                transition: 'all 0.2s ease',
+              }}
+              onMouseEnter={(e) => {
+                if (!disabled) {
+                  e.currentTarget.style.backgroundColor = 'var(--p-color-bg-surface-hover)';
+                  e.currentTarget.style.borderColor = 'var(--p-color-border-strong)';
+                }
+              }}
+              onMouseLeave={(e) => {
+                if (!disabled) {
+                  e.currentTarget.style.backgroundColor = 'var(--p-color-bg-surface)';
+                  e.currentTarget.style.borderColor = 'var(--p-color-border)';
+                }
+              }}
+              aria-label={placeholder || "Add tag"}
+            >
+              +
+            </button>
+          )}
+        </InlineStack>
+      </div>
 
-      {/* FLOATING INPUT BOX (only show when + button is clicked) */}
+      {/* FLOATING INPUT BOX (positioned absolutely, outside table flow) */}
       {showInput && (
-        <div style={{ marginTop: '8px' }}>
+        <div
+          style={{
+            position: 'fixed',
+            top: floatingInputPosition.top + 'px',
+            left: floatingInputPosition.left + 'px',
+            width: floatingInputPosition.width + 'px',
+            zIndex: 10001, // Higher than suggestions dropdown
+            backgroundColor: 'white',
+            border: '1px solid var(--p-color-border)',
+            borderRadius: 'var(--p-border-radius-200)',
+            boxShadow: 'var(--p-shadow-300)',
+            padding: '12px',
+          }}
+        >
           <TextField
             ref={inputRef}
             label={label}
@@ -399,6 +460,6 @@ export function TagAutocomplete({
           )}
         </div>
       )}
-    </div>
+    </>
   );
 }
