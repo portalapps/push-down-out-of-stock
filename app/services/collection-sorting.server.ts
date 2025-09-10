@@ -155,14 +155,6 @@ export async function fetchCollectionProducts(
         // This includes products set to "continue selling when out of stock"
         const isInStock = variants.some(variant => variant.availableForSale);
 
-        // Debug logging for stock detection
-        console.log(`📦 Product: ${product.title}`);
-        console.log(`🔢 Variants:`, variants.map(v => ({ 
-          id: v.id.split('/').pop(), 
-          inventoryQuantity: v.inventoryQuantity, 
-          availableForSale: v.availableForSale 
-        })));
-        console.log(`📊 isInStock: ${isInStock}`);
 
         return {
           id: product.id,
