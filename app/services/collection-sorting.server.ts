@@ -200,9 +200,19 @@ export function shouldExcludeProduct(
 ): boolean {
   if (exclusionTags.length === 0) return false;
   
-  return product.tags.some(tag => 
-    exclusionTags.includes(tag.toLowerCase())
+  const productTagsLower = product.tags.map(tag => tag.toLowerCase());
+  const hasExclusionTag = productTagsLower.some(tag => 
+    exclusionTags.includes(tag)
   );
+  
+  console.log(`🏷️ Product "${product.title}":`, {
+    productTags: product.tags,
+    productTagsLower,
+    exclusionTags,
+    isExcluded: hasExclusionTag
+  });
+  
+  return hasExclusionTag;
 }
 
 /**

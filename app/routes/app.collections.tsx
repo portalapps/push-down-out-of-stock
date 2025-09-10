@@ -202,7 +202,12 @@ export const action = async ({ request }: ActionFunctionArgs) => {
         },
       });
 
-      const exclusionTagList = exclusionTags.map(et => et.tag);
+      const exclusionTagList = exclusionTags.map(et => et.tag.toLowerCase());
+      console.log('🏷️ Debug exclusion tags:', { 
+        collectionId, 
+        exclusionTagsFromDB: exclusionTags,
+        processedTagList: exclusionTagList 
+      });
 
       // Sort products using our dual-layer algorithm
       const { inStock, outOfStock } = sortProductsWithInventory(
