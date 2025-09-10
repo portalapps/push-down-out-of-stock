@@ -968,33 +968,38 @@ export default function Collections() {
 
         <IndexTable.Cell>
           <div 
-            style={{ 
-              cursor: 'pointer',
-              display: 'inline-block'
-            }}
             onClick={(e) => {
-              console.log('🖱️ Badge container clicked for collection:', id);
-              console.log('🖱️ Event target:', e.target);
-              console.log('🖱️ Event currentTarget:', e.currentTarget);
-              
-              // Stop event from bubbling up to IndexTable.Row
+              console.log('🖱️ Badge cell clicked for collection:', id, title);
               e.stopPropagation();
-              e.preventDefault();
-              
-              console.log('🖱️ About to call handleStatusToggle...');
-              handleStatusToggle(id);
-              console.log('🖱️ Called handleStatusToggle');
             }}
           >
-            <div 
-              style={{ 
-                pointerEvents: 'none' // Prevent Badge from interfering with click
+            <button 
+              type="button"
+              onClick={(e) => {
+                console.log('🖱️ Badge BUTTON clicked for collection:', id, title);
+                console.log('🖱️ Event target:', e.target);
+                console.log('🖱️ Event currentTarget:', e.currentTarget);
+                
+                // Stop event from bubbling up
+                e.stopPropagation();
+                e.preventDefault();
+                
+                console.log('🖱️ About to call handleStatusToggle...');
+                handleStatusToggle(id);
+                console.log('🖱️ Called handleStatusToggle');
+              }}
+              style={{
+                background: 'none',
+                border: 'none',
+                padding: '0',
+                cursor: 'pointer',
+                fontSize: 'inherit'
               }}
             >
               <Badge tone={isEnabled ? 'success' : 'critical'}>
                 {isEnabled ? 'Enabled' : 'Disabled'}
               </Badge>
-            </div>
+            </button>
           </div>
         </IndexTable.Cell>
 
