@@ -355,8 +355,9 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 };
 
 export default function Collections() {
-  console.log('🏗️ Collections component rendering');
+  console.log('🏗️ Collections component rendering - STEP 1');
   const { collections, productTags, error, existingSettings, existingTags } = useLoaderData<typeof loader>();
+  console.log('🏗️ Collections component rendering - STEP 2', { collectionsLength: collections?.length });
   const [isSaving, setIsSaving] = useState(false);
   const fetcher = useFetcher();
   
@@ -1006,6 +1007,7 @@ export default function Collections() {
             <button 
               type="button"
               onClick={(e) => {
+                alert('BADGE CLICKED! Collection: ' + title);
                 console.log('🖱️ Badge BUTTON clicked for collection:', id, title);
                 console.log('🖱️ Event target:', e.target);
                 console.log('🖱️ Event currentTarget:', e.currentTarget);
