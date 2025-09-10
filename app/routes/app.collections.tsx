@@ -154,10 +154,17 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
 
 export const action = async ({ request }: ActionFunctionArgs) => {
   console.log('ACTION HANDLER CALLED - Method:', request.method);
+  console.log('🕵️ ACTION HANDLER - Request URL:', request.url);
+  console.log('🕵️ ACTION HANDLER - Request headers:', Object.fromEntries(request.headers));
+  
   const { admin, session } = await authenticate.admin(request);
   
   const formData = await request.formData();
   console.log('ACTION HANDLER - FormData received:', Object.fromEntries(formData));
+  
+  // Add stack trace to see what's calling this
+  console.log('🔍 ACTION HANDLER - Stack trace:');
+  console.trace('Called from:');
   
   const action = formData.get('action')?.toString();
   
@@ -368,17 +375,27 @@ export default function Collections() {
         // Check if we need to trigger auto-sort after a settings save
         if ((window as any).pendingAutoSort) {
           const { collectionId, sortType } = (window as any).pendingAutoSort;
-          console.log('🎯 Now triggering auto-sort after save completion:', collectionId, sortType);
+          console.log('🎯 PENDING AUTO-SORT detected:', collectionId, sortType);
+          console.log('🎯 Collection settings for pending sort:', collectionSettings[collectionId]);
           
-          // Clear the pending flag
-          delete (window as any).pendingAutoSort;
-          
-          // Trigger the sort
-          setProcessStatus(prev => ({ ...prev, [collectionId]: 'processing' }));
-          const sortFetcher = new FormData();
-          sortFetcher.append('action', 'sortCollection');
-          sortFetcher.append('collectionId', collectionId);
-          fetcher.submit(sortFetcher, { method: 'POST' });
+          // Only sort if the collection is actually enabled
+          if (collectionSettings[collectionId]?.enabled) {
+            console.log('🎯 Now triggering auto-sort after save completion:', collectionId, sortType);
+            
+            // Clear the pending flag
+            delete (window as any).pendingAutoSort;
+            
+            // Trigger the sort
+            setProcessStatus(prev => ({ ...prev, [collectionId]: 'processing' }));
+            const sortFetcher = new FormData();
+            sortFetcher.append('action', 'sortCollection');
+            sortFetcher.append('collectionId', collectionId);
+            fetcher.submit(sortFetcher, { method: 'POST' });
+          } else {
+            console.log('❌ Skipping auto-sort because collection is disabled:', collectionId);
+            // Clear the pending flag anyway
+            delete (window as any).pendingAutoSort;
+          }
         }
       } else {
         console.error('❌ Save failed:', fetcher.data?.error || 'No error message');
@@ -596,6 +613,8 @@ export default function Collections() {
   }, [collectionSettings, autoSave, fetcher]);
 
   const handleSortTypeChange = useCallback(async (collectionId: string, sortType: string) => {
+    console.log('🔄 handleSortTypeChange called:', { collectionId, sortType, currentSettings: collectionSettings[collectionId] });
+    
     // Update local state immediately
     setCollectionSettings(prev => ({
       ...prev,
@@ -612,10 +631,14 @@ export default function Collections() {
     autoSave(collectionId, { sortType });
     
     // Mark that we need to auto-sort this collection after save completes
-    if (collectionSettings[collectionId]?.enabled) {
-      console.log('🎯 Will auto-sort after save completes:', collectionId, sortType);
+    const isEnabled = collectionSettings[collectionId]?.enabled;
+    console.log('🎯 Collection enabled status for auto-sort:', isEnabled);
+    if (isEnabled) {
+      console.log('🎯 Setting pendingAutoSort flag:', collectionId, sortType);
       // Set a flag to trigger sorting after the save completes
       (window as any).pendingAutoSort = { collectionId, sortType };
+    } else {
+      console.log('❌ NOT setting pendingAutoSort - collection is disabled');
     }
   }, [collectionSettings, autoSave, fetcher]);
 
