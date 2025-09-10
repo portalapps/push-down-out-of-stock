@@ -63,7 +63,7 @@ const FETCH_COLLECTION_PRODUCTS_QUERY = `
 // Valid ProductCollectionSortKeys from Shopify Admin GraphQL API:
 // BEST_SELLING, COLLECTION_DEFAULT, CREATED, ID, MANUAL, PRICE, RELEVANCE, TITLE
 export const SORT_TYPE_MAPPING = {
-  'bestsellers asc': { sortKey: 'BEST_SELLING', reverse: false },
+  'bestsellers asc': { sortKey: 'COLLECTION_DEFAULT', reverse: false },
   'alpha_asc asc': { sortKey: 'TITLE', reverse: false },
   'alpha_desc desc': { sortKey: 'TITLE', reverse: true },
   'price_desc desc': { sortKey: 'PRICE', reverse: true },
