@@ -1003,7 +1003,6 @@ export default function Collections() {
             onClick={(e) => {
               console.log('🖱️ Badge BUTTON clicked for collection:', id, title);
               e.stopPropagation();
-              e.preventDefault();
               handleStatusToggle(id);
             }}
             style={{
