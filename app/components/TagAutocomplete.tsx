@@ -341,7 +341,7 @@ export function TagAutocomplete({
         </InlineStack>
       </div>
 
-      {/* FLOATING INPUT BOX (positioned absolutely, outside table flow) */}
+      {/* UNIFIED FLOATING BOX (positioned absolutely, outside table flow) */}
       {showInput && (
         <div
           style={{
@@ -349,59 +349,53 @@ export function TagAutocomplete({
             top: floatingInputPosition.top + 'px',
             left: floatingInputPosition.left + 'px',
             width: floatingInputPosition.width + 'px',
-            zIndex: 10001, // Higher than suggestions dropdown
+            zIndex: 10001,
             backgroundColor: 'white',
             border: '1px solid var(--p-color-border)',
             borderRadius: 'var(--p-border-radius-200)',
             boxShadow: 'var(--p-shadow-300)',
-            padding: '12px',
+            overflow: 'hidden', // Prevents content from bleeding outside rounded corners
           }}
         >
-          <TextField
-            ref={inputRef}
-            label={label}
-            labelHidden={labelHidden}
-            value={inputValue}
-            onChange={handleInputChange}
-            onKeyDown={handleKeyDown}
-            placeholder={placeholder}
-            autoComplete="off"
-            onBlur={() => {
-              // Delay to allow clicking on suggestions
-              setTimeout(() => {
-                setIsFocused(false);
-                setShowSuggestions(false);
-                setSelectedIndex(-1);
-                // Only add tag on blur if input has value 
-                if (inputValue?.trim()) {
-                  simpleInputSubmit();
-                } else {
-                  handleInputClose();
-                }
-              }, 150);
-            }}
-            onFocus={() => {
-              setIsFocused(true);
-              // Suggestions will be shown via useEffect based on focus state
-            }}
-          />
+          {/* INPUT SECTION */}
+          <div style={{ padding: '12px' }}>
+            <TextField
+              ref={inputRef}
+              label={label}
+              labelHidden={labelHidden}
+              value={inputValue}
+              onChange={handleInputChange}
+              onKeyDown={handleKeyDown}
+              placeholder={placeholder}
+              autoComplete="off"
+              onBlur={() => {
+                // Delay to allow clicking on suggestions
+                setTimeout(() => {
+                  setIsFocused(false);
+                  setShowSuggestions(false);
+                  setSelectedIndex(-1);
+                  // Only add tag on blur if input has value 
+                  if (inputValue?.trim()) {
+                    simpleInputSubmit();
+                  } else {
+                    handleInputClose();
+                  }
+                }, 150);
+              }}
+              onFocus={() => {
+                setIsFocused(true);
+                // Suggestions will be shown via useEffect based on focus state
+              }}
+            />
+          </div>
 
-          {/* SUGGESTIONS DROPDOWN */}
+          {/* SUGGESTIONS SECTION (directly below input, no gap) */}
           {showSuggestions && totalItems > 0 && (
             <div
               style={{
-                position: 'fixed', // Fixed position to escape parent containers
-                top: dropdownPosition.top + 'px',
-                left: dropdownPosition.left + 'px',
-                width: dropdownPosition.width + 'px',
-                zIndex: 10000, // Much higher z-index to appear above all Polaris components
-                backgroundColor: 'white',
-                border: '1px solid var(--p-color-border)',
-                borderRadius: 'var(--p-border-radius-200)',
-                boxShadow: 'var(--p-shadow-300)', // Stronger shadow for better visibility
-                minHeight: '48px', // Minimum height for better visual appearance
-                maxHeight: Math.min(totalItems * 40 + 16, 320) + 'px', // Dynamic height based on items, max 320px
-                overflowY: totalItems > 8 ? 'auto' : 'hidden', // Only show scrollbar when needed
+                borderTop: '1px solid var(--p-color-border-subdued)',
+                maxHeight: Math.min(totalItems * 40, 240) + 'px', // Max 6 items visible
+                overflowY: totalItems > 6 ? 'auto' : 'hidden',
               }}
             >
               {/* EXISTING SUGGESTIONS */}
@@ -436,7 +430,6 @@ export function TagAutocomplete({
                     padding: '10px 12px',
                     cursor: 'pointer',
                     backgroundColor: selectedIndex === suggestions.length ? 'var(--p-color-bg-surface-hover)' : 'transparent',
-                    borderTop: suggestions.length > 0 ? '1px solid var(--p-color-border-subdued)' : 'none',
                     minHeight: '40px',
                     display: 'flex',
                     alignItems: 'center',
