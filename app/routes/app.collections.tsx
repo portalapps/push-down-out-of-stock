@@ -360,14 +360,38 @@ export default function Collections() {
   const [isSaving, setIsSaving] = useState(false);
   const fetcher = useFetcher();
   
-  // Override fetcher.submit to trace who's calling it
-  const originalSubmit = fetcher.submit;
-  fetcher.submit = function(...args) {
-    console.log('🚨 FETCHER.SUBMIT CALLED with args:', args);
-    console.log('🚨 Stack trace for fetcher.submit:');
-    console.trace('Who called fetcher.submit?');
-    return originalSubmit.apply(this, args);
-  };
+  // Add global debugging
+  React.useEffect(() => {
+    console.log('🔧 Setting up global event debugging...');
+    
+    // Override window.fetch to catch any direct API calls
+    const originalFetch = window.fetch;
+    window.fetch = function(...args) {
+      const url = args[0];
+      if (typeof url === 'string' && url.includes('collections')) {
+        console.log('🌍 WINDOW.FETCH called to collections endpoint:', args);
+        console.trace('Fetch called from:');
+      }
+      return originalFetch.apply(this, args);
+    };
+    
+    // Add document-level click listener
+    const clickHandler = (e) => {
+      console.log('📱 DOCUMENT CLICK detected:', {
+        target: e.target,
+        tagName: e.target?.tagName,
+        textContent: e.target?.textContent?.substring(0, 50),
+        className: e.target?.className
+      });
+    };
+    
+    document.addEventListener('click', clickHandler);
+    
+    return () => {
+      window.fetch = originalFetch;
+      document.removeEventListener('click', clickHandler);
+    };
+  }, []);
   
   console.log('🏗️ Component state:', { 
     collectionsCount: collections?.length, 
