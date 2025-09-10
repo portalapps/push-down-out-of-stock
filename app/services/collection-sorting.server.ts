@@ -455,20 +455,10 @@ export async function reorderCollectionProducts(
       }
     }
 
-    // Now restore the original collection sort order
-    // Only restore if it's not manual (manual should stay manual)
-    if (originalSortType !== 'manual asc') {
-      const originalSortOrder = COLLECTION_SORT_ORDER_MAPPING[originalSortType];
-      console.log(`🔄 Restoring collection sort order to: ${originalSortOrder}`);
-      
-      const restoreResult = await updateCollectionSortOrder(admin, collectionId, originalSortOrder);
-      if (!restoreResult.success) {
-        console.warn('⚠️ Failed to restore collection sort order:', restoreResult.error);
-        // Don't fail the whole operation, just log the warning
-      } else {
-        console.log(`✅ Collection sort order restored to ${originalSortOrder}`);
-      }
-    }
+    // Keep collection on MANUAL sort - don't restore original sort order
+    // The manual order we created already incorporates the desired sorting logic
+    // Restoring to automatic sort (ALPHA_ASC, etc.) would undo our reordering
+    console.log('✅ Keeping collection on MANUAL sort to preserve out-of-stock positioning');
 
     return { 
       success: true, 
