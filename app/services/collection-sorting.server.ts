@@ -155,6 +155,15 @@ export async function fetchCollectionProducts(
           variant.inventoryQuantity > 0 && variant.availableForSale
         );
 
+        // Debug logging for stock detection
+        console.log(`📦 Product: ${product.title}`);
+        console.log(`🔢 Variants:`, variants.map(v => ({ 
+          id: v.id.split('/').pop(), 
+          inventoryQuantity: v.inventoryQuantity, 
+          availableForSale: v.availableForSale 
+        })));
+        console.log(`📊 isInStock: ${isInStock}`);
+
         return {
           id: product.id,
           title: product.title,
