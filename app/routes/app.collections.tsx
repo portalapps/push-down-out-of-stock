@@ -919,10 +919,24 @@ export default function Collections() {
               console.log('🖱️ Current event:', e);
               console.log('🖱️ About to call handleStatusToggle...');
               e.stopPropagation();
+              e.preventDefault(); // Prevent any default behavior
               handleStatusToggle(id);
               console.log('🖱️ Called handleStatusToggle');
             }}
-            style={{ cursor: 'pointer', display: 'inline-block' }}
+            onMouseDown={(e) => {
+              console.log('🖱️ Badge mouseDown for collection:', id);
+            }}
+            onMouseUp={(e) => {
+              console.log('🖱️ Badge mouseUp for collection:', id);
+            }}
+            style={{ 
+              cursor: 'pointer', 
+              display: 'inline-block',
+              position: 'relative',
+              zIndex: 1000,
+              backgroundColor: 'rgba(255,0,0,0.1)', // Temporary red overlay to see click area
+              padding: '2px'
+            }}
           >
             <Badge tone={isEnabled ? 'success' : 'critical'}>
               {isEnabled ? 'Enabled' : 'Disabled'}
