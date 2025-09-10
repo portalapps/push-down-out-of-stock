@@ -73,6 +73,18 @@ export const SORT_TYPE_MAPPING = {
   'manual asc': { sortKey: 'MANUAL', reverse: false },
 } as const;
 
+// Map our sort types to Shopify collection sort orders
+export const COLLECTION_SORT_ORDER_MAPPING = {
+  'bestsellers asc': 'BEST_SELLING',
+  'alpha_asc asc': 'ALPHA_ASC', 
+  'alpha_desc desc': 'ALPHA_DESC',
+  'price_desc desc': 'PRICE_DESC',
+  'price_asc asc': 'PRICE_ASC',
+  'date_desc desc': 'CREATED_DESC',
+  'date_asc asc': 'CREATED',
+  'manual asc': 'MANUAL',
+} as const;
+
 export type SortTypeValue = keyof typeof SORT_TYPE_MAPPING;
 
 /**
@@ -256,20 +268,21 @@ const REORDER_COLLECTION_PRODUCTS_MUTATION = `
 `;
 
 /**
- * Updates collection sort order to manual (required for product reordering)
+ * Updates collection sort order
  */
 async function updateCollectionSortOrder(
   admin: AdminApiContext,
-  collectionId: string
+  collectionId: string,
+  sortOrder: string = 'MANUAL'
 ): Promise<{ success: boolean; error?: string }> {
   try {
-    console.log(`🔧 Setting collection ${collectionId} to manual sort order`);
+    console.log(`🔧 Setting collection ${collectionId} to ${sortOrder} sort order`);
 
     const response = await admin.graphql(UPDATE_COLLECTION_SORT_ORDER_MUTATION, {
       variables: {
         input: {
           id: collectionId,
-          sortOrder: 'MANUAL',
+          sortOrder: sortOrder,
         },
       },
     });
@@ -294,7 +307,7 @@ async function updateCollectionSortOrder(
       };
     }
 
-    console.log('✅ Collection sort order updated to manual');
+    console.log(`✅ Collection sort order updated to ${sortOrder}`);
     return { success: true };
 
   } catch (error) {
@@ -309,11 +322,13 @@ async function updateCollectionSortOrder(
 /**
  * Reorders products in a Shopify collection using the Admin API
  * Takes the sorted product IDs and applies the new order to the collection
+ * Then restores the original sort order
  */
 export async function reorderCollectionProducts(
   admin: AdminApiContext,
   collectionId: string,
-  sortedProductIds: string[]
+  sortedProductIds: string[],
+  originalSortType: SortTypeValue = 'bestsellers asc'
 ): Promise<{ success: boolean; jobId?: string; error?: string }> {
   try {
     console.log(`🔄 Reordering ${sortedProductIds.length} products in collection ${collectionId}`);
@@ -366,6 +381,21 @@ export async function reorderCollectionProducts(
     const jobDone = result?.job?.done;
 
     console.log(`✅ Collection reorder initiated:`, { jobId, jobDone });
+
+    // Now restore the original collection sort order
+    // Only restore if it's not manual (manual should stay manual)
+    if (originalSortType !== 'manual asc') {
+      const originalSortOrder = COLLECTION_SORT_ORDER_MAPPING[originalSortType];
+      console.log(`🔄 Restoring collection sort order to: ${originalSortOrder}`);
+      
+      const restoreResult = await updateCollectionSortOrder(admin, collectionId, originalSortOrder);
+      if (!restoreResult.success) {
+        console.warn('⚠️ Failed to restore collection sort order:', restoreResult.error);
+        // Don't fail the whole operation, just log the warning
+      } else {
+        console.log(`✅ Collection sort order restored to ${originalSortOrder}`);
+      }
+    }
 
     return { 
       success: true, 

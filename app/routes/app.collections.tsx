@@ -226,7 +226,8 @@ export const action = async ({ request }: ActionFunctionArgs) => {
       const reorderResult = await reorderCollectionProducts(
         admin,
         collectionId,
-        sortedProductIds
+        sortedProductIds,
+        sortType // Pass the sort type so it can be restored after reordering
       );
 
       if (!reorderResult.success) {
