@@ -998,45 +998,26 @@ export default function Collections() {
         </IndexTable.Cell>
 
         <IndexTable.Cell>
-          <div 
+          <button 
+            type="button"
             onClick={(e) => {
-              console.log('🖱️ Badge cell clicked for collection:', id, title);
+              console.log('🖱️ Badge BUTTON clicked for collection:', id, title);
               e.stopPropagation();
+              e.preventDefault();
+              handleStatusToggle(id);
+            }}
+            style={{
+              background: 'none',
+              border: 'none',
+              padding: '0',
+              cursor: 'pointer',
+              fontSize: 'inherit'
             }}
           >
-            <button 
-              type="button"
-              onClick={(e) => {
-                try {
-                  console.log('🖱️ Badge BUTTON clicked for collection:', id, title);
-                  console.log('🖱️ Event target:', e.target);
-                  console.log('🖱️ Event currentTarget:', e.currentTarget);
-                  
-                  // Stop event from bubbling up
-                  e.stopPropagation();
-                  e.preventDefault();
-                  
-                  console.log('🖱️ About to call handleStatusToggle...');
-                  handleStatusToggle(id);
-                  console.log('🖱️ Called handleStatusToggle successfully');
-                } catch (error) {
-                  console.error('💥 ERROR in Badge click handler:', error);
-                  console.error('💥 Error details:', error.message, error.stack);
-                }
-              }}
-              style={{
-                background: 'none',
-                border: 'none',
-                padding: '0',
-                cursor: 'pointer',
-                fontSize: 'inherit'
-              }}
-            >
-              <Badge tone={isEnabled ? 'success' : 'critical'}>
-                {isEnabled ? 'Enabled' : 'Disabled'}
-              </Badge>
-            </button>
-          </div>
+            <Badge tone={isEnabled ? 'success' : 'critical'}>
+              {isEnabled ? 'Enabled' : 'Disabled'}
+            </Badge>
+          </button>
         </IndexTable.Cell>
 
         <IndexTable.Cell>
