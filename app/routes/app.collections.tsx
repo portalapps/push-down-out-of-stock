@@ -795,18 +795,15 @@ export default function Collections() {
       return updated;
     });
     
-    // Auto-save to database
-    await autoSave(collectionId, { exclusionTags: newTags });
-    
-    // If collection is enabled, automatically re-sort with new exclusion tags
+    // If collection is enabled, set up auto-sort after save completes
     if (collectionSettings[collectionId]?.enabled) {
-      console.log('🎯 Auto-sorting collection after tag add:', collectionId, tag);
-      setProcessStatus(prev => ({ ...prev, [collectionId]: 'processing' }));
-      fetcher.submit(
-        { action: 'sortCollection', collectionId },
-        { method: 'POST' }
-      );
+      console.log('🎯 Setting up auto-sort after tag add save completes:', collectionId, tag);
+      const currentSortType = collectionSettings[collectionId]?.sortType || 'bestsellers asc';
+      (window as any).pendingAutoSort = { collectionId, sortType: currentSortType };
     }
+    
+    // Auto-save to database (sort will be triggered automatically after save completes)
+    autoSave(collectionId, { exclusionTags: newTags });
   }, [collectionSettings, autoSave, fetcher]);
 
   const handleTagRemove = useCallback(async (collectionId: string, tag: string) => {
@@ -823,18 +820,15 @@ export default function Collections() {
       }
     }));
     
-    // Auto-save to database
-    await autoSave(collectionId, { exclusionTags: newTags });
-    
-    // If collection is enabled, automatically re-sort with new exclusion tags
+    // If collection is enabled, set up auto-sort after save completes
     if (collectionSettings[collectionId]?.enabled) {
-      console.log('🎯 Auto-sorting collection after tag remove:', collectionId, tag);
-      setProcessStatus(prev => ({ ...prev, [collectionId]: 'processing' }));
-      fetcher.submit(
-        { action: 'sortCollection', collectionId },
-        { method: 'POST' }
-      );
+      console.log('🎯 Setting up auto-sort after tag remove save completes:', collectionId, tag);
+      const currentSortType = collectionSettings[collectionId]?.sortType || 'bestsellers asc';
+      (window as any).pendingAutoSort = { collectionId, sortType: currentSortType };
     }
+    
+    // Auto-save to database (sort will be triggered automatically after save completes)
+    autoSave(collectionId, { exclusionTags: newTags });
   }, [collectionSettings, autoSave, fetcher]);
 
 
