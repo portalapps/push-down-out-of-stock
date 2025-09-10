@@ -892,6 +892,11 @@ export default function Collections() {
         key={id}
         selected={selectedResources.includes(id)}
         position={index}
+        onClick={(e) => {
+          console.log('📋 IndexTable.Row clicked for collection:', id);
+          console.log('📋 Event target:', e?.target);
+          console.log('📋 Event currentTarget:', e?.currentTarget);
+        }}
       >
         <IndexTable.Cell>
           <BlockStack gap="100">
@@ -913,34 +918,34 @@ export default function Collections() {
         </IndexTable.Cell>
 
         <IndexTable.Cell>
-          <div
+          <div 
+            style={{ 
+              cursor: 'pointer',
+              display: 'inline-block'
+            }}
             onClick={(e) => {
-              console.log('🖱️ Badge clicked for collection:', id);
-              console.log('🖱️ Current event:', e);
-              console.log('🖱️ About to call handleStatusToggle...');
+              console.log('🖱️ Badge container clicked for collection:', id);
+              console.log('🖱️ Event target:', e.target);
+              console.log('🖱️ Event currentTarget:', e.currentTarget);
+              
+              // Stop event from bubbling up to IndexTable.Row
               e.stopPropagation();
-              e.preventDefault(); // Prevent any default behavior
+              e.preventDefault();
+              
+              console.log('🖱️ About to call handleStatusToggle...');
               handleStatusToggle(id);
               console.log('🖱️ Called handleStatusToggle');
             }}
-            onMouseDown={(e) => {
-              console.log('🖱️ Badge mouseDown for collection:', id);
-            }}
-            onMouseUp={(e) => {
-              console.log('🖱️ Badge mouseUp for collection:', id);
-            }}
-            style={{ 
-              cursor: 'pointer', 
-              display: 'inline-block',
-              position: 'relative',
-              zIndex: 1000,
-              backgroundColor: 'rgba(255,0,0,0.1)', // Temporary red overlay to see click area
-              padding: '2px'
-            }}
           >
-            <Badge tone={isEnabled ? 'success' : 'critical'}>
-              {isEnabled ? 'Enabled' : 'Disabled'}
-            </Badge>
+            <div 
+              style={{ 
+                pointerEvents: 'none' // Prevent Badge from interfering with click
+              }}
+            >
+              <Badge tone={isEnabled ? 'success' : 'critical'}>
+                {isEnabled ? 'Enabled' : 'Disabled'}
+              </Badge>
+            </div>
           </div>
         </IndexTable.Cell>
 
