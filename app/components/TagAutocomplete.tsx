@@ -10,7 +10,9 @@ import {
   Tag,
   InlineStack,
   BlockStack,
+  Button,
 } from "@shopify/polaris";
+import { PlusIcon } from '@shopify/polaris-icons';
 
 // COMPONENT PROPS INTERFACE
 interface TagAutocompleteProps {
@@ -49,8 +51,10 @@ export function TagAutocomplete({
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [selectedIndex, setSelectedIndex] = useState(-1);
   const [isFocused, setIsFocused] = useState(false);
+  const [showInput, setShowInput] = useState(false); // Controls whether the input box is visible
   const [dropdownPosition, setDropdownPosition] = useState({ top: 0, left: 0, width: 0 });
   const containerRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
 
   // FILTER SUGGESTIONS BASED ON INPUT
   const suggestions = useMemo(() => {
@@ -114,10 +118,30 @@ export function TagAutocomplete({
       setInputValue("");
       setShowSuggestions(false);
       setSelectedIndex(-1);
+      setShowInput(false); // Hide input after adding tag
     } catch (error) {
       console.error('Error in handleInputSubmit:', error);
     }
   }, [inputValue, onAddTag, selectedTags]);
+
+  // HANDLE + BUTTON CLICK
+  const handlePlusClick = useCallback(() => {
+    setShowInput(true);
+    setIsFocused(true);
+    // Focus the input after it becomes visible
+    setTimeout(() => {
+      inputRef.current?.focus();
+    }, 10);
+  }, []);
+
+  // HANDLE INPUT CLOSE (Escape or click outside)
+  const handleInputClose = useCallback(() => {
+    setShowInput(false);
+    setIsFocused(false);
+    setShowSuggestions(false);
+    setInputValue("");
+    setSelectedIndex(-1);
+  }, []);
 
   const handleKeyDown = (event: React.KeyboardEvent) => {
     try {
@@ -157,8 +181,7 @@ export function TagAutocomplete({
           }
           break;
         case 'Escape':
-          setShowSuggestions(false);
-          setSelectedIndex(-1);
+          handleInputClose();
           break;
         case ',':
           event.preventDefault();
@@ -225,125 +248,157 @@ export function TagAutocomplete({
       setInputValue("");
       setShowSuggestions(false);
       setSelectedIndex(-1);
+      setShowInput(false); // Hide input after adding tag
     } catch (error) {
       console.error('Error in simpleInputSubmit:', error);
     }
   };
 
+  // Handle clicks outside the component to close input
+  useEffect(() => {
+    if (!showInput) return;
+
+    const handleClickOutside = (event: MouseEvent) => {
+      if (containerRef.current && !containerRef.current.contains(event.target as Node)) {
+        handleInputClose();
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [showInput, handleInputClose]);
+
   return (
-    <BlockStack gap="200">
-      {/* MAIN CONTAINER */}
-      <div ref={containerRef} style={{ position: 'relative', width: '100%' }}>
-        <TextField
-          label={label}
-          labelHidden={labelHidden}
-          value={inputValue}
-          onChange={handleInputChange}
-          onKeyDown={handleKeyDown}
-          placeholder={placeholder}
-          autoComplete="off"
-          onBlur={() => {
-            // Delay to allow clicking on suggestions
-            setTimeout(() => {
-              setIsFocused(false);
-              setShowSuggestions(false);
-              setSelectedIndex(-1);
-              // Only add tag on blur if input has value 
-              if (inputValue?.trim()) {
-                simpleInputSubmit();
-              }
-            }, 150);
-          }}
-          onFocus={() => {
-            setIsFocused(true);
-            // Suggestions will be shown via useEffect based on focus state
-          }}
-        />
-
-        {/* SUGGESTIONS DROPDOWN */}
-        {showSuggestions && totalItems > 0 && (
-          <div
-            style={{
-              position: 'fixed', // Fixed position to escape parent containers
-              top: dropdownPosition.top + 'px',
-              left: dropdownPosition.left + 'px',
-              width: dropdownPosition.width + 'px',
-              zIndex: 10000, // Much higher z-index to appear above all Polaris components
-              backgroundColor: 'white',
-              border: '1px solid var(--p-color-border)',
-              borderRadius: 'var(--p-border-radius-200)',
-              boxShadow: 'var(--p-shadow-300)', // Stronger shadow for better visibility
-              minHeight: '48px', // Minimum height for better visual appearance
-              maxHeight: Math.min(totalItems * 40 + 16, 320) + 'px', // Dynamic height based on items, max 320px
-              overflowY: totalItems > 8 ? 'auto' : 'hidden', // Only show scrollbar when needed
-            }}
-          >
-            {/* EXISTING SUGGESTIONS */}
-            {suggestions.map((suggestion, index) => (
-              <div
-                key={suggestion}
-                style={{
-                  padding: '10px 12px',
-                  cursor: 'pointer',
-                  backgroundColor: index === selectedIndex ? 'var(--p-color-bg-surface-hover)' : 'transparent',
-                  borderBottom: (index < suggestions.length - 1 || isNewTag) ? '1px solid var(--p-color-border-subdued)' : 'none',
-                  minHeight: '40px',
-                  display: 'flex',
-                  alignItems: 'center',
-                }}
-                onMouseDown={(e) => {
-                  e.preventDefault(); // Prevent input blur
-                  handleTagSelect(suggestion);
-                }}
-                onMouseEnter={() => setSelectedIndex(index)}
-              >
-                <span style={{ fontSize: '14px', color: 'var(--p-color-text)' }}>
-                  {suggestion}
-                </span>
-              </div>
-            ))}
-
-            {/* ADD NEW TAG OPTION */}
-            {isNewTag && (
-              <div
-                style={{
-                  padding: '10px 12px',
-                  cursor: 'pointer',
-                  backgroundColor: selectedIndex === suggestions.length ? 'var(--p-color-bg-surface-hover)' : 'transparent',
-                  borderTop: suggestions.length > 0 ? '1px solid var(--p-color-border-subdued)' : 'none',
-                  minHeight: '40px',
-                  display: 'flex',
-                  alignItems: 'center',
-                }}
-                onMouseDown={(e) => {
-                  e.preventDefault(); // Prevent input blur
-                  simpleInputSubmit();
-                }}
-                onMouseEnter={() => setSelectedIndex(suggestions.length)}
-              >
-                <span style={{ 
-                  fontSize: '14px', 
-                  color: 'var(--p-color-text-secondary)',
-                  fontWeight: '500'
-                }}>
-                  + Add "{inputValue.trim()}"
-                </span>
-              </div>
-            )}
-          </div>
+    <div ref={containerRef} style={{ position: 'relative', width: '100%' }}>
+      {/* SELECTED TAGS AND + BUTTON */}
+      <InlineStack gap="100" wrap align="center">
+        {/* SELECTED TAGS */}
+        {selectedTags.map((tag) => (
+          <Tag key={tag} onRemove={() => onRemoveTag(tag)}>
+            {tag}
+          </Tag>
+        ))}
+        
+        {/* + BUTTON (only show when input is not visible) */}
+        {!showInput && (
+          <Button
+            icon={PlusIcon}
+            variant="plain"
+            onClick={handlePlusClick}
+            accessibilityLabel={placeholder || "Add tag"}
+            size="micro"
+          />
         )}
-      </div>
+      </InlineStack>
 
-      {/* SELECTED TAGS DISPLAY */}
-      {selectedTags.length > 0 && (
-        <InlineStack gap="100" wrap>
-          {selectedTags.map((tag) => (
-            <Tag key={tag} onRemove={() => onRemoveTag(tag)}>
-              {tag}
-            </Tag>
-          ))}
-        </InlineStack>
+      {/* FLOATING INPUT BOX (only show when + button is clicked) */}
+      {showInput && (
+        <div style={{ marginTop: '8px' }}>
+          <TextField
+            ref={inputRef}
+            label={label}
+            labelHidden={labelHidden}
+            value={inputValue}
+            onChange={handleInputChange}
+            onKeyDown={handleKeyDown}
+            placeholder={placeholder}
+            autoComplete="off"
+            onBlur={() => {
+              // Delay to allow clicking on suggestions
+              setTimeout(() => {
+                setIsFocused(false);
+                setShowSuggestions(false);
+                setSelectedIndex(-1);
+                // Only add tag on blur if input has value 
+                if (inputValue?.trim()) {
+                  simpleInputSubmit();
+                } else {
+                  handleInputClose();
+                }
+              }, 150);
+            }}
+            onFocus={() => {
+              setIsFocused(true);
+              // Suggestions will be shown via useEffect based on focus state
+            }}
+          />
+
+          {/* SUGGESTIONS DROPDOWN */}
+          {showSuggestions && totalItems > 0 && (
+            <div
+              style={{
+                position: 'fixed', // Fixed position to escape parent containers
+                top: dropdownPosition.top + 'px',
+                left: dropdownPosition.left + 'px',
+                width: dropdownPosition.width + 'px',
+                zIndex: 10000, // Much higher z-index to appear above all Polaris components
+                backgroundColor: 'white',
+                border: '1px solid var(--p-color-border)',
+                borderRadius: 'var(--p-border-radius-200)',
+                boxShadow: 'var(--p-shadow-300)', // Stronger shadow for better visibility
+                minHeight: '48px', // Minimum height for better visual appearance
+                maxHeight: Math.min(totalItems * 40 + 16, 320) + 'px', // Dynamic height based on items, max 320px
+                overflowY: totalItems > 8 ? 'auto' : 'hidden', // Only show scrollbar when needed
+              }}
+            >
+              {/* EXISTING SUGGESTIONS */}
+              {suggestions.map((suggestion, index) => (
+                <div
+                  key={suggestion}
+                  style={{
+                    padding: '10px 12px',
+                    cursor: 'pointer',
+                    backgroundColor: index === selectedIndex ? 'var(--p-color-bg-surface-hover)' : 'transparent',
+                    borderBottom: (index < suggestions.length - 1 || isNewTag) ? '1px solid var(--p-color-border-subdued)' : 'none',
+                    minHeight: '40px',
+                    display: 'flex',
+                    alignItems: 'center',
+                  }}
+                  onMouseDown={(e) => {
+                    e.preventDefault(); // Prevent input blur
+                    handleTagSelect(suggestion);
+                  }}
+                  onMouseEnter={() => setSelectedIndex(index)}
+                >
+                  <span style={{ fontSize: '14px', color: 'var(--p-color-text)' }}>
+                    {suggestion}
+                  </span>
+                </div>
+              ))}
+
+              {/* ADD NEW TAG OPTION */}
+              {isNewTag && (
+                <div
+                  style={{
+                    padding: '10px 12px',
+                    cursor: 'pointer',
+                    backgroundColor: selectedIndex === suggestions.length ? 'var(--p-color-bg-surface-hover)' : 'transparent',
+                    borderTop: suggestions.length > 0 ? '1px solid var(--p-color-border-subdued)' : 'none',
+                    minHeight: '40px',
+                    display: 'flex',
+                    alignItems: 'center',
+                  }}
+                  onMouseDown={(e) => {
+                    e.preventDefault(); // Prevent input blur
+                    simpleInputSubmit();
+                  }}
+                  onMouseEnter={() => setSelectedIndex(suggestions.length)}
+                >
+                  <span style={{ 
+                    fontSize: '14px', 
+                    color: 'var(--p-color-text-secondary)',
+                    fontWeight: '500'
+                  }}>
+                    + Add "{inputValue.trim()}"
+                  </span>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
       )}
-    </BlockStack>
+    </div>
   );
 }
