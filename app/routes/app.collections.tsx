@@ -645,19 +645,16 @@ export default function Collections() {
     }));
     
     console.log('💾 About to call autoSave with enabled:', newEnabled);
-    // Auto-save to database
-    await autoSave(collectionId, { enabled: newEnabled });
     
-    // If enabling collection, automatically sort it
+    // If enabling collection, set up auto-sort after save completes
     if (newEnabled) {
-      console.log('🎯 Auto-sorting collection after enabling:', collectionId);
-      // Trigger sort directly to avoid circular dependency
-      setProcessStatus(prev => ({ ...prev, [collectionId]: 'processing' }));
-      fetcher.submit(
-        { action: 'sortCollection', collectionId },
-        { method: 'POST' }
-      );
+      console.log('🎯 Setting up auto-sort after save completes:', collectionId);
+      const currentSortType = collectionSettings[collectionId]?.sortType || 'bestsellers asc';
+      (window as any).pendingAutoSort = { collectionId, sortType: currentSortType };
     }
+    
+    // Auto-save to database (sort will be triggered automatically after save completes)
+    autoSave(collectionId, { enabled: newEnabled });
   }, [collectionSettings, autoSave, fetcher]);
 
   const handleSortTypeChange = useCallback(async (collectionId: string, sortType: string) => {
