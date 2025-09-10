@@ -662,6 +662,12 @@ export default function Collections() {
   const handleSortTypeChange = useCallback(async (collectionId: string, sortType: string) => {
     console.log('🔄 handleSortTypeChange called:', { collectionId, sortType, currentSettings: collectionSettings[collectionId] });
     
+    // CRITICAL: Don't do anything if collection is disabled
+    if (!collectionSettings[collectionId]?.enabled) {
+      console.log('❌ BLOCKING handleSortTypeChange - collection is disabled:', collectionId);
+      return;
+    }
+    
     // Update local state immediately
     setCollectionSettings(prev => ({
       ...prev,
