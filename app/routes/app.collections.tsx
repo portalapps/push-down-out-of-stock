@@ -355,9 +355,16 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 };
 
 export default function Collections() {
+  console.log('🏗️ Collections component rendering');
   const { collections, productTags, error, existingSettings, existingTags } = useLoaderData<typeof loader>();
   const [isSaving, setIsSaving] = useState(false);
   const fetcher = useFetcher();
+  
+  console.log('🏗️ Component state:', { 
+    collectionsCount: collections?.length, 
+    fetcherState: fetcher.state,
+    fetcherData: fetcher.data
+  });
   
   // Debug fetcher state changes
   React.useEffect(() => {
@@ -366,6 +373,13 @@ export default function Collections() {
       data: fetcher.data,
       formData: fetcher.formData ? Object.fromEntries(fetcher.formData) : null
     });
+    
+    // Log what triggered this fetcher call
+    if (fetcher.formData) {
+      console.log('🕵️ Fetcher was triggered with formData:', Object.fromEntries(fetcher.formData));
+      console.log('🕵️ Current stack at fetcher state change:');
+      console.trace('Fetcher state change triggered from:');
+    }
     
     if (fetcher.state === 'idle' && fetcher.data) {
       console.log('✅ Fetcher completed with data:', fetcher.data);
