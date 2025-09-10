@@ -360,6 +360,15 @@ export default function Collections() {
   const [isSaving, setIsSaving] = useState(false);
   const fetcher = useFetcher();
   
+  // Override fetcher.submit to trace who's calling it
+  const originalSubmit = fetcher.submit;
+  fetcher.submit = function(...args) {
+    console.log('🚨 FETCHER.SUBMIT CALLED with args:', args);
+    console.log('🚨 Stack trace for fetcher.submit:');
+    console.trace('Who called fetcher.submit?');
+    return originalSubmit.apply(this, args);
+  };
+  
   console.log('🏗️ Component state:', { 
     collectionsCount: collections?.length, 
     fetcherState: fetcher.state,
