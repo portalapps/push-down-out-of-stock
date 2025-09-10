@@ -3,13 +3,11 @@ import { renderToPipeableStream } from "react-dom/server";
 import { RemixServer } from "@remix-run/react";
 import { isbot } from "isbot";
 import { addDocumentResponseHeaders } from "./shopify.server";
-
-// Import with dynamic import for Vercel compatibility
-import type { EntryContext } from "@vercel/remix";
+import type { EntryContext } from "@remix-run/node";
 
 export const streamTimeout = 5000;
 
-export default async function handleRequest(
+export default function handleRequest(
   request: Request,
   responseStatusCode: number,
   responseHeaders: Headers,
@@ -21,9 +19,6 @@ export default async function handleRequest(
     ? "onAllReady"
     : "onShellReady";
 
-  // Dynamically import Vercel Remix utilities
-  const { createReadableStreamFromReadable } = await import("@vercel/remix");
-
   return new Promise((resolve, reject) => {
     const { pipe, abort } = renderToPipeableStream(
       <RemixServer
@@ -33,7 +28,19 @@ export default async function handleRequest(
       {
         [callbackName]: () => {
           const body = new PassThrough();
-          const stream = createReadableStreamFromReadable(body);
+          const stream = new ReadableStream({
+            start(controller) {
+              body.on('data', (chunk) => {
+                controller.enqueue(new Uint8Array(chunk));
+              });
+              body.on('end', () => {
+                controller.close();
+              });
+              body.on('error', (error) => {
+                controller.error(error);
+              });
+            },
+          });
 
           responseHeaders.set("Content-Type", "text/html");
           resolve(
