@@ -268,6 +268,68 @@ const REORDER_COLLECTION_PRODUCTS_MUTATION = `
   }
 `;
 
+// GraphQL query to check job status
+const CHECK_JOB_STATUS_QUERY = `
+  query getJob($id: ID!) {
+    job(id: $id) {
+      id
+      done
+    }
+  }
+`;
+
+/**
+ * Waits for a Shopify job to complete by polling its status
+ */
+async function waitForJobCompletion(
+  admin: AdminApiContext,
+  jobId: string,
+  maxWaitTime: number = 30000, // 30 seconds max
+  pollInterval: number = 2000   // Check every 2 seconds
+): Promise<{ completed: boolean; timedOut: boolean }> {
+  const startTime = Date.now();
+  
+  console.log(`⏳ Waiting for job completion: ${jobId}`);
+  
+  while (Date.now() - startTime < maxWaitTime) {
+    try {
+      const response = await admin.graphql(CHECK_JOB_STATUS_QUERY, {
+        variables: { id: jobId }
+      });
+      
+      const data = await response.json();
+      
+      if (data.errors) {
+        console.error('❌ Error checking job status:', data.errors);
+        break;
+      }
+      
+      const job = data.data?.job;
+      if (!job) {
+        console.error('❌ Job not found:', jobId);
+        break;
+      }
+      
+      console.log(`🔄 Job ${jobId}: done=${job.done}`);
+      
+      if (job.done) {
+        console.log(`✅ Job completed: ${jobId}`);
+        return { completed: true, timedOut: false };
+      }
+      
+      // Wait before next poll
+      await new Promise(resolve => setTimeout(resolve, pollInterval));
+      
+    } catch (error) {
+      console.error('❌ Error polling job status:', error);
+      break;
+    }
+  }
+  
+  console.warn(`⏰ Job timed out or failed: ${jobId}`);
+  return { completed: false, timedOut: true };
+}
+
 /**
  * Updates collection sort order
  */
@@ -382,6 +444,16 @@ export async function reorderCollectionProducts(
     const jobDone = result?.job?.done;
 
     console.log(`✅ Collection reorder initiated:`, { jobId, jobDone });
+
+    // Wait for the reorder job to complete
+    if (jobId && !jobDone) {
+      const jobResult = await waitForJobCompletion(admin, jobId);
+      
+      if (!jobResult.completed) {
+        console.warn('⚠️ Reorder job did not complete in time, but continuing...');
+        // Don't fail - the job might still complete eventually
+      }
+    }
 
     // Now restore the original collection sort order
     // Only restore if it's not manual (manual should stay manual)
