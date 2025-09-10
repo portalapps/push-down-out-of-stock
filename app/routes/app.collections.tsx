@@ -930,9 +930,12 @@ export default function Collections() {
         selected={selectedResources.includes(id)}
         position={index}
         onClick={(e) => {
-          console.log('📋 IndexTable.Row clicked for collection:', id);
+          console.log('📋 IndexTable.Row clicked for collection:', id, title);
           console.log('📋 Event target:', e?.target);
           console.log('📋 Event currentTarget:', e?.currentTarget);
+          console.log('📋 Target tagName:', e?.target?.tagName);
+          console.log('📋 Target textContent:', e?.target?.textContent);
+          console.log('📋 Target className:', e?.target?.className);
         }}
       >
         <IndexTable.Cell>
