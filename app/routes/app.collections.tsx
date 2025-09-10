@@ -916,6 +916,7 @@ export default function Collections() {
           <div
             onClick={(e) => {
               e.stopPropagation();
+              console.log('🖱️ Badge clicked for collection:', id);
               handleStatusToggle(id);
             }}
             style={{ cursor: 'pointer', display: 'inline-block' }}
