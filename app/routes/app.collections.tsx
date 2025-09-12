@@ -991,7 +991,7 @@ export default function Collections() {
           </BlockStack>
         </IndexTable.Cell>
 
-        <IndexTable.Cell style={{ width: '100px', maxWidth: '100px', padding: '8px' }}>
+        <IndexTable.Cell>
           <Tooltip content={isEnabled ? 'Click to disable' : 'Click to enable'}>
             <button 
               type="button"
@@ -1015,7 +1015,7 @@ export default function Collections() {
           </Tooltip>
         </IndexTable.Cell>
 
-        <IndexTable.Cell style={{ width: '160px', maxWidth: '160px', padding: '8px' }}>
+        <IndexTable.Cell>
           <div onClick={(e) => e.stopPropagation()}>
             <Select
               label="Sort type"
@@ -1028,7 +1028,7 @@ export default function Collections() {
           </div>
         </IndexTable.Cell>
 
-        <IndexTable.Cell style={{ width: '100px', maxWidth: '100px', padding: '8px' }}>
+        <IndexTable.Cell>
           <div onClick={(e) => e.stopPropagation()}>
             <TagAutocomplete
               availableTags={availableTags}
@@ -1054,6 +1054,26 @@ export default function Collections() {
       backAction={{content: 'Settings', url: '/app/settings'}}
     >
       <TitleBar title="Collections" />
+      <style>{`
+        .Polaris-IndexTable__Table {
+          table-layout: fixed !important;
+        }
+        .Polaris-IndexTable__Table td:nth-child(2) {
+          width: 100px !important;
+          max-width: 100px !important;
+          min-width: 100px !important;
+        }
+        .Polaris-IndexTable__Table td:nth-child(3) {
+          width: 160px !important;
+          max-width: 160px !important;
+          min-width: 160px !important;
+        }
+        .Polaris-IndexTable__Table td:nth-child(4) {
+          width: 100px !important;
+          max-width: 100px !important;
+          min-width: 100px !important;
+        }
+      `}</style>
       
       <Layout>
         <Layout.Section>
