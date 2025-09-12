@@ -1016,7 +1016,7 @@ export default function Collections() {
         </IndexTable.Cell>
 
         <IndexTable.Cell>
-          <div onClick={(e) => e.stopPropagation()}>
+          <div onClick={(e) => e.stopPropagation()} style={{ width: '140px' }}>
             <Select
               label="Sort type"
               labelHidden
