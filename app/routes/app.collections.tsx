@@ -416,7 +416,9 @@ export default function Collections() {
   console.log('🏗️ Component state:', { 
     collectionsCount: collections?.length, 
     fetcherState: fetcher.state,
-    fetcherData: fetcher.data
+    fetcherData: fetcher.data,
+    processStatusKeys: Object.keys(processStatus),
+    processStatus: processStatus
   });
   
   // Debug fetcher state changes
@@ -438,6 +440,7 @@ export default function Collections() {
       console.log('✅ Fetcher completed with data:', fetcher.data);
       const action = fetcher.formData.get('action')?.toString();
       const collectionId = fetcher.formData.get('collectionId')?.toString();
+      console.log('🔍 Processing action:', action, 'for collection:', collectionId);
       
       if (action === 'updateSetting' && collectionId) {
         if (fetcher.data?.success) {
@@ -643,6 +646,7 @@ export default function Collections() {
     console.log('💾 autoSave called with:', { collectionId, updates });
     
     // Set processing status immediately when settings change
+    console.log('🔵 Setting status to PROCESSING for:', collectionId);
     setProcessStatus(prev => ({ ...prev, [collectionId]: 'processing' }));
     
     const currentSettings = collectionSettings[collectionId] || {
