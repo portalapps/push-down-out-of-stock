@@ -291,7 +291,7 @@ export function TagAutocomplete({
 
   return (
     <>
-      <div ref={containerRef} style={{ position: 'relative', width: '100%', maxWidth: '150px' }}>
+      <div ref={containerRef} style={{ position: 'relative', width: '100%', maxWidth: '100px' }}>
         {/* SELECTED TAGS AND + BUTTON */}
         <InlineStack gap="100" wrap={true} align="start">
           {/* SELECTED TAGS */}

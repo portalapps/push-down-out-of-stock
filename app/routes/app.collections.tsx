@@ -30,7 +30,10 @@ import {
   useSetIndexFiltersMode,
   ChoiceList,
   Banner,
+  Tooltip,
+  Icon,
 } from "@shopify/polaris";
+import { InfoIcon } from "@shopify/polaris-icons";
 
 // COMPONENTS
 import { TagAutocomplete } from "../components/TagAutocomplete";
@@ -989,25 +992,27 @@ export default function Collections() {
         </IndexTable.Cell>
 
         <IndexTable.Cell>
-          <button 
-            type="button"
-            onClick={(e) => {
-              console.log('🖱️ Badge BUTTON clicked for collection:', id, title);
-              e.stopPropagation();
-              handleStatusToggle(id);
-            }}
-            style={{
-              background: 'none',
-              border: 'none',
-              padding: '0',
-              cursor: 'pointer',
-              fontSize: 'inherit'
-            }}
-          >
-            <Badge tone={isEnabled ? 'success' : 'critical'}>
-              {isEnabled ? 'Enabled' : 'Disabled'}
-            </Badge>
-          </button>
+          <Tooltip content={isEnabled ? 'Click to disable' : 'Click to enable'}>
+            <button 
+              type="button"
+              onClick={(e) => {
+                console.log('🖱️ Badge BUTTON clicked for collection:', id, title);
+                e.stopPropagation();
+                handleStatusToggle(id);
+              }}
+              style={{
+                background: 'none',
+                border: 'none',
+                padding: '0',
+                cursor: 'pointer',
+                fontSize: 'inherit'
+              }}
+            >
+              <Badge tone={isEnabled ? 'success' : 'critical'}>
+                {isEnabled ? 'Enabled' : 'Disabled'}
+              </Badge>
+            </button>
+          </Tooltip>
         </IndexTable.Cell>
 
         <IndexTable.Cell>
@@ -1097,9 +1102,37 @@ export default function Collections() {
               promotedBulkActions={promotedBulkActions}
               headings={[
                 { title: 'Collection' },
-                { title: 'Status' },
-                { title: 'Sort Type' },
-                { title: 'Exclusion Tags', width: '150px' },
+                { 
+                  title: (
+                    <InlineStack gap="100" align="center">
+                      <Text as="span" variant="headingSm">Status</Text>
+                      <Tooltip content="Enable or disable automatic out-of-stock sorting for this collection">
+                        <Icon source={InfoIcon} tone="base" />
+                      </Tooltip>
+                    </InlineStack>
+                  )
+                },
+                { 
+                  title: (
+                    <InlineStack gap="100" align="center">
+                      <Text as="span" variant="headingSm">Sort Type</Text>
+                      <Tooltip content="Choose how products should be sorted within in-stock and out-of-stock groups">
+                        <Icon source={InfoIcon} tone="base" />
+                      </Tooltip>
+                    </InlineStack>
+                  )
+                },
+                { 
+                  title: (
+                    <InlineStack gap="100" align="center">
+                      <Text as="span" variant="headingSm">Exclusion Tags</Text>
+                      <Tooltip content="Products with these tags won't be moved to bottom even when out of stock">
+                        <Icon source={InfoIcon} tone="base" />
+                      </Tooltip>
+                    </InlineStack>
+                  ), 
+                  width: '100px' 
+                },
               ]}
             >
               {rowMarkup}
