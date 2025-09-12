@@ -421,8 +421,9 @@ export default function Collections() {
     processStatus: processStatus
   });
   
-  // Store all operations in order to handle rapid changes (FIFO queue)
-  const pendingOperationsRef = React.useRef<Array<{collectionId: string, formData: FormData}>>([]); 
+  // Store latest operation per collection + order of requests
+  const pendingOperationsRef = React.useRef<Map<string, {formData: FormData, timestamp: number}>>(new Map());
+  const requestOrderRef = React.useRef<string[]>([]); // Track order for response matching
   
   // Debug fetcher state changes
   React.useEffect(() => {
@@ -432,19 +433,30 @@ export default function Collections() {
       formData: fetcher.formData ? Object.fromEntries(fetcher.formData) : null
     });
     
-    // Store formData when submitting in FIFO order (preserves all operations)
+    // Store latest formData per collection + track request order
     if (fetcher.state === 'submitting' && fetcher.formData) {
       const collectionId = fetcher.formData.get('collectionId')?.toString();
       
-      if (collectionId && pendingOperationsRef.current) {
+      if (collectionId && pendingOperationsRef.current && requestOrderRef.current) {
         try {
-          pendingOperationsRef.current.push({ collectionId, formData: fetcher.formData });
-          console.log('📝 Storing formData for collection:', collectionId, Object.fromEntries(fetcher.formData));
-          console.log('📋 Total pending operations:', pendingOperationsRef.current.length);
+          const timestamp = Date.now();
+          // Store latest operation for this collection (overwrites previous)
+          pendingOperationsRef.current.set(collectionId, { 
+            formData: fetcher.formData, 
+            timestamp 
+          });
+          
+          // Track request order for response matching
+          requestOrderRef.current.push(collectionId);
+          
+          console.log('📝 Storing LATEST formData for collection:', collectionId, Object.fromEntries(fetcher.formData));
+          console.log('📋 Pending collections:', Array.from(pendingOperationsRef.current.keys()));
+          console.log('📋 Request order:', requestOrderRef.current);
         } catch (error) {
-          console.error('❌ Error storing operation in queue:', error);
-          // Initialize if somehow corrupted
-          pendingOperationsRef.current = [{ collectionId, formData: fetcher.formData }];
+          console.error('❌ Error storing operation:', error);
+          // Reset on error
+          pendingOperationsRef.current = new Map([[collectionId, { formData: fetcher.formData, timestamp: Date.now() }]]);
+          requestOrderRef.current = [collectionId];
         }
       }
     }
@@ -460,19 +472,26 @@ export default function Collections() {
       console.log('✅ Fetcher completed with data:', fetcher.data);
       
       try {
-        // Process the OLDEST pending operation since server processes requests in FIFO order
-        if (pendingOperationsRef.current && pendingOperationsRef.current.length > 0) {
-        console.log('🔍 Processing pending operations:', pendingOperationsRef.current.length);
-        
-        // Get and remove the first (oldest) operation from the queue
-        const operation = pendingOperationsRef.current.shift();
-        if (!operation || !operation.collectionId || !operation.formData) {
-          console.warn('⚠️ Invalid operation found in queue:', operation);
-          return;
-        }
-        
-        const { collectionId, formData } = operation;
-        const action = formData.get('action')?.toString();
+        // Match response to the most recent pending request
+        if (pendingOperationsRef.current && pendingOperationsRef.current.size > 0 && requestOrderRef.current && requestOrderRef.current.length > 0) {
+          console.log('🔍 Processing pending collections:', Array.from(pendingOperationsRef.current.keys()));
+          console.log('🔍 Request order queue:', requestOrderRef.current);
+          
+          // Get the oldest request from the order (FIFO for response matching)
+          const collectionId = requestOrderRef.current.shift()!;
+          const operationData = pendingOperationsRef.current.get(collectionId);
+          
+          if (!operationData || !operationData.formData) {
+            console.warn('⚠️ No operation data found for collection:', collectionId);
+            return;
+          }
+          
+          // Use the LATEST formData for this collection (not the old request)
+          const { formData } = operationData;
+          const action = formData.get('action')?.toString();
+          
+          // Remove this collection from pending (latest operation processed)
+          pendingOperationsRef.current.delete(collectionId);
         
         console.log('🎯 Processing OLDEST operation for collection:', collectionId, 'action:', action);
       
@@ -556,13 +575,17 @@ export default function Collections() {
         }
         
           // Log remaining pending operations
-          console.log('🧹 Remaining pending operations after processing:', pendingOperationsRef.current?.length || 0);
+          console.log('🧹 Remaining pending collections:', Array.from(pendingOperationsRef.current?.keys() || []));
+          console.log('🧹 Remaining request order:', requestOrderRef.current);
         }
       } catch (error) {
         console.error('❌ Error processing pending operations:', error);
-        // Reset the queue on error to prevent further issues
+        // Reset both refs on error to prevent further issues
         if (pendingOperationsRef.current) {
-          pendingOperationsRef.current = [];
+          pendingOperationsRef.current = new Map();
+        }
+        if (requestOrderRef.current) {
+          requestOrderRef.current = [];
         }
       }
     }
