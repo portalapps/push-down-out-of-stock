@@ -419,39 +419,56 @@ export default function Collections() {
       console.trace('Fetcher state change triggered from:');
     }
     
-    if (fetcher.state === 'idle' && fetcher.data) {
+    if (fetcher.state === 'idle' && fetcher.data && fetcher.formData) {
       console.log('✅ Fetcher completed with data:', fetcher.data);
-      if (fetcher.data?.success) {
-        setToastMessage('Settings saved automatically');
-        
-        // Check if we need to trigger auto-sort after a settings save
-        if ((window as any).pendingAutoSort) {
-          const { collectionId, sortType } = (window as any).pendingAutoSort;
-          console.log('🎯 PENDING AUTO-SORT detected:', collectionId, sortType);
-          console.log('🎯 Collection settings for pending sort:', collectionSettings[collectionId]);
+      const action = fetcher.formData.get('action')?.toString();
+      const collectionId = fetcher.formData.get('collectionId')?.toString();
+      
+      if (action === 'updateSetting' && collectionId) {
+        if (fetcher.data?.success) {
+          setToastMessage('Settings saved automatically');
           
-          // Only sort if the collection is actually enabled
-          if (collectionSettings[collectionId]?.enabled) {
-            console.log('🎯 Now triggering auto-sort after save completion:', collectionId, sortType);
+          // Check if we need to trigger auto-sort after a settings save
+          if ((window as any).pendingAutoSort) {
+            const { collectionId: pendingId, sortType } = (window as any).pendingAutoSort;
+            console.log('🎯 PENDING AUTO-SORT detected:', pendingId, sortType);
             
-            // Clear the pending flag
-            delete (window as any).pendingAutoSort;
-            
-            // Trigger the sort
-            setProcessStatus(prev => ({ ...prev, [collectionId]: 'processing' }));
-            const sortFetcher = new FormData();
-            sortFetcher.append('action', 'sortCollection');
-            sortFetcher.append('collectionId', collectionId);
-            fetcher.submit(sortFetcher, { method: 'POST' });
+            // Only sort if the collection is actually enabled
+            if (collectionSettings[pendingId]?.enabled) {
+              console.log('🎯 Now triggering auto-sort after save completion:', pendingId, sortType);
+              
+              // Clear the pending flag
+              delete (window as any).pendingAutoSort;
+              
+              // Keep processing status since we're now sorting
+              const sortFormData = new FormData();
+              sortFormData.append('action', 'sortCollection');
+              sortFormData.append('collectionId', pendingId);
+              fetcher.submit(sortFormData, { method: 'POST' });
+            } else {
+              console.log('❌ Skipping auto-sort because collection is disabled');
+              // Set to ready since save completed but no sort needed
+              setProcessStatus(prev => ({ ...prev, [collectionId]: 'ready' }));
+              delete (window as any).pendingAutoSort;
+            }
           } else {
-            console.log('❌ Skipping auto-sort because collection is disabled:', collectionId);
-            // Clear the pending flag anyway
-            delete (window as any).pendingAutoSort;
+            // No auto-sort pending, just set to ready
+            setProcessStatus(prev => ({ ...prev, [collectionId]: 'ready' }));
           }
+        } else {
+          console.error('❌ Save failed:', fetcher.data?.error || 'No error message');
+          setProcessStatus(prev => ({ ...prev, [collectionId]: 'error' }));
+          setToastMessage(`Failed to save settings: ${fetcher.data?.error || 'Unknown error'}`);
         }
-      } else {
-        console.error('❌ Save failed:', fetcher.data?.error || 'No error message');
-        setToastMessage(`Failed to save settings: ${fetcher.data?.error || 'Unknown error'}`);
+      } else if (action === 'sortCollection' && collectionId) {
+        if (fetcher.data?.success) {
+          setProcessStatus(prev => ({ ...prev, [collectionId]: 'ready' }));
+          const stats = fetcher.data.stats;
+          setToastMessage(`Collection sorted! ${stats.inStockCount} in-stock, ${stats.outOfStockCount} moved to bottom`);
+        } else {
+          setProcessStatus(prev => ({ ...prev, [collectionId]: 'error' }));
+          setToastMessage(`Sort failed: ${fetcher.data.error}`);
+        }
       }
     }
   }, [fetcher.state, fetcher.data]);
@@ -619,6 +636,9 @@ export default function Collections() {
   }>) => {
     console.log('💾 autoSave called with:', { collectionId, updates });
     
+    // Set processing status immediately when settings change
+    setProcessStatus(prev => ({ ...prev, [collectionId]: 'processing' }));
+    
     const currentSettings = collectionSettings[collectionId] || {
       enabled: false,
       sortType: 'bestsellers',
@@ -775,34 +795,6 @@ export default function Collections() {
     }
   }, [fetcher]);
 
-  // Handle fetcher state changes for sorting
-  React.useEffect(() => {
-    if (fetcher.state === 'idle' && fetcher.data && fetcher.formData) {
-      const action = fetcher.formData.get('action')?.toString();
-      const collectionId = fetcher.formData.get('collectionId')?.toString();
-      
-      if (action === 'sortCollection' && collectionId) {
-        if (fetcher.data.success) {
-          setProcessStatus(prev => ({ ...prev, [collectionId]: 'ready' }));
-          const stats = fetcher.data.stats;
-          setToastMessage(`Collection sorted! ${stats.inStockCount} in-stock, ${stats.outOfStockCount} moved to bottom`);
-          
-          // Clear the status after 2 seconds
-          setTimeout(() => {
-            setProcessStatus(prev => ({ ...prev, [collectionId]: 'idle' }));
-          }, 2000);
-        } else {
-          setProcessStatus(prev => ({ ...prev, [collectionId]: 'error' }));
-          setToastMessage(`Sort failed: ${fetcher.data.error}`);
-          
-          // Clear error status after 3 seconds
-          setTimeout(() => {
-            setProcessStatus(prev => ({ ...prev, [collectionId]: 'idle' }));
-          }, 3000);
-        }
-      }
-    }
-  }, [fetcher.state, fetcher.data, fetcher.formData]);
 
   // TAG MANAGEMENT
   const handleTagAdd = useCallback(async (collectionId: string, tag: string) => {
