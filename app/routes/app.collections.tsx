@@ -599,7 +599,7 @@ export default function Collections() {
         console.log('🧹 Remaining request order:', requestOrderRef.current);
       }
     }
-  }, [fetcher.state, fetcher.data, fetcher.formData, collectionSettings]);
+  }), [fetcher.state, fetcher.data, fetcher.formData, collectionSettings]);
 
   
   // Early return for debugging (moved after state declarations)
