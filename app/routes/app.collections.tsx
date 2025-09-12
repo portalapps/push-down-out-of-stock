@@ -1016,7 +1016,7 @@ export default function Collections() {
         </IndexTable.Cell>
 
         <IndexTable.Cell>
-          <div onClick={(e) => e.stopPropagation()} style={{ width: '160px' }}>
+          <div onClick={(e) => e.stopPropagation()} style={{ width: '160px', maxWidth: '160px' }}>
             <Select
               label="Sort type"
               labelHidden
@@ -1104,7 +1104,7 @@ export default function Collections() {
                 { title: 'Collection' },
                 { 
                   title: (
-                    <InlineStack gap="100" align="center">
+                    <InlineStack gap="100" align="start">
                       <Text as="span" variant="headingSm">Status</Text>
                       <Tooltip content="Enable or disable automatic out-of-stock sorting for this collection">
                         <Icon source={InfoIcon} tone="base" />
@@ -1115,7 +1115,7 @@ export default function Collections() {
                 },
                 { 
                   title: (
-                    <InlineStack gap="100" align="center">
+                    <InlineStack gap="100" align="start">
                       <Text as="span" variant="headingSm">Sort Type</Text>
                       <Tooltip content="Choose how products should be sorted within in-stock and out-of-stock groups">
                         <Icon source={InfoIcon} tone="base" />
@@ -1126,7 +1126,7 @@ export default function Collections() {
                 },
                 { 
                   title: (
-                    <InlineStack gap="100" align="center">
+                    <InlineStack gap="100" align="start">
                       <Text as="span" variant="headingSm">Exclusion Tags</Text>
                       <Tooltip content="Products with these tags won't be moved to bottom even when out of stock">
                         <Icon source={InfoIcon} tone="base" />
