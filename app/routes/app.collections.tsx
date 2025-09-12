@@ -425,6 +425,9 @@ export default function Collections() {
   const pendingOperationsRef = React.useRef<Map<string, {formData: FormData, timestamp: number}>>(new Map());
   const requestOrderRef = React.useRef<string[]>([]); // Track order for response matching
   
+  // Store pending auto-sorts per collection (replaces single global pendingAutoSort)
+  const pendingAutoSortsRef = React.useRef<Map<string, {collectionId: string, sortType: string}>>(new Map());
+  
   // Debug fetcher state changes
   React.useEffect(() => {
     console.log('🌐 Fetcher state changed:', { 
@@ -516,27 +519,28 @@ export default function Collections() {
             });
           }, 3000);
           
-          // Check if we need to trigger auto-sort after a settings save
-          if ((window as any).pendingAutoSort) {
-            const { collectionId: pendingId, sortType } = (window as any).pendingAutoSort;
-            console.log('🎯 PENDING AUTO-SORT detected:', pendingId, sortType);
+          // Check if we need to trigger auto-sort for this specific collection after save
+          const pendingSort = pendingAutoSortsRef.current.get(collectionId);
+          if (pendingSort) {
+            const { sortType } = pendingSort;
+            console.log('🎯 PENDING AUTO-SORT detected for collection:', collectionId, sortType);
             
             // Only sort if the collection is actually enabled
-            if (collectionSettings[pendingId]?.enabled) {
-              console.log('🎯 Now triggering auto-sort after save completion:', pendingId, sortType);
+            if (collectionSettings[collectionId]?.enabled) {
+              console.log('🎯 Now triggering auto-sort after save completion:', collectionId, sortType);
               
-              // Clear the pending flag
-              delete (window as any).pendingAutoSort;
+              // Remove this collection's pending auto-sort
+              pendingAutoSortsRef.current.delete(collectionId);
               
               // Set back to processing for the sort operation
-              setProcessStatus(prev => ({ ...prev, [pendingId]: 'processing' }));
+              setProcessStatus(prev => ({ ...prev, [collectionId]: 'processing' }));
               const sortFormData = new FormData();
               sortFormData.append('action', 'sortCollection');
-              sortFormData.append('collectionId', pendingId);
+              sortFormData.append('collectionId', collectionId);
               fetcher.submit(sortFormData, { method: 'POST' });
             } else {
               console.log('❌ Skipping auto-sort because collection is disabled');
-              delete (window as any).pendingAutoSort;
+              pendingAutoSortsRef.current.delete(collectionId);
             }
           }
         } else {
@@ -795,7 +799,7 @@ export default function Collections() {
     if (newEnabled) {
       console.log('🎯 Setting up auto-sort after save completes:', collectionId);
       const currentSortType = collectionSettings[collectionId]?.sortType || 'bestsellers asc';
-      (window as any).pendingAutoSort = { collectionId, sortType: currentSortType };
+      pendingAutoSortsRef.current.set(collectionId, { collectionId, sortType: currentSortType });
     }
     
     // Auto-save to database (sort will be triggered automatically after save completes)
@@ -830,9 +834,9 @@ export default function Collections() {
     const isEnabled = collectionSettings[collectionId]?.enabled;
     console.log('🎯 Collection enabled status for auto-sort:', isEnabled);
     if (isEnabled) {
-      console.log('🎯 Setting pendingAutoSort flag:', collectionId, sortType);
+      console.log('🎯 Setting pendingAutoSort for collection:', collectionId, sortType);
       // Set a flag to trigger sorting after the save completes
-      (window as any).pendingAutoSort = { collectionId, sortType };
+      pendingAutoSortsRef.current.set(collectionId, { collectionId, sortType });
     } else {
       console.log('❌ NOT setting pendingAutoSort - collection is disabled');
     }
@@ -926,7 +930,7 @@ export default function Collections() {
     if (collectionSettings[collectionId]?.enabled) {
       console.log('🎯 Setting up auto-sort after tag add save completes:', collectionId, tag);
       const currentSortType = collectionSettings[collectionId]?.sortType || 'bestsellers asc';
-      (window as any).pendingAutoSort = { collectionId, sortType: currentSortType };
+      pendingAutoSortsRef.current.set(collectionId, { collectionId, sortType: currentSortType });
     }
     
     // Auto-save to database (sort will be triggered automatically after save completes)
@@ -951,7 +955,7 @@ export default function Collections() {
     if (collectionSettings[collectionId]?.enabled) {
       console.log('🎯 Setting up auto-sort after tag remove save completes:', collectionId, tag);
       const currentSortType = collectionSettings[collectionId]?.sortType || 'bestsellers asc';
-      (window as any).pendingAutoSort = { collectionId, sortType: currentSortType };
+      pendingAutoSortsRef.current.set(collectionId, { collectionId, sortType: currentSortType });
     }
     
     // Auto-save to database (sort will be triggered automatically after save completes)
