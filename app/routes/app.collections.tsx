@@ -34,7 +34,7 @@ import {
   Icon,
   Spinner,
 } from "@shopify/polaris";
-import { InfoIcon, CheckIcon } from "@shopify/polaris-icons";
+import { InfoIcon, CheckIcon, AlertTriangleIcon } from "@shopify/polaris-icons";
 
 // COMPONENTS
 import { TagAutocomplete } from "../components/TagAutocomplete";
@@ -786,9 +786,19 @@ export default function Collections() {
           setProcessStatus(prev => ({ ...prev, [collectionId]: 'ready' }));
           const stats = fetcher.data.stats;
           setToastMessage(`Collection sorted! ${stats.inStockCount} in-stock, ${stats.outOfStockCount} moved to bottom`);
+          
+          // Clear the status after 2 seconds
+          setTimeout(() => {
+            setProcessStatus(prev => ({ ...prev, [collectionId]: 'idle' }));
+          }, 2000);
         } else {
           setProcessStatus(prev => ({ ...prev, [collectionId]: 'error' }));
           setToastMessage(`Sort failed: ${fetcher.data.error}`);
+          
+          // Clear error status after 3 seconds
+          setTimeout(() => {
+            setProcessStatus(prev => ({ ...prev, [collectionId]: 'idle' }));
+          }, 3000);
         }
       }
     }
@@ -1051,6 +1061,9 @@ export default function Collections() {
             )}
             {processStatus[id] === 'ready' && (
               <Icon source={CheckIcon} tone="success" />
+            )}
+            {processStatus[id] === 'error' && (
+              <Icon source={AlertTriangleIcon} tone="critical" />
             )}
           </div>
         </IndexTable.Cell>
