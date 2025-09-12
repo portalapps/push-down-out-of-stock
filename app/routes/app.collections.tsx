@@ -1016,7 +1016,7 @@ export default function Collections() {
         </IndexTable.Cell>
 
         <IndexTable.Cell>
-          <div onClick={(e) => e.stopPropagation()} style={{ width: '200px' }}>
+          <div onClick={(e) => e.stopPropagation()} style={{ width: '160px' }}>
             <Select
               label="Sort type"
               labelHidden
@@ -1122,7 +1122,7 @@ export default function Collections() {
                       </Tooltip>
                     </InlineStack>
                   ),
-                  width: '200px'
+                  width: '160px'
                 },
                 { 
                   title: (
