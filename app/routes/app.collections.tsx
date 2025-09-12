@@ -991,7 +991,7 @@ export default function Collections() {
           </BlockStack>
         </IndexTable.Cell>
 
-        <IndexTable.Cell>
+        <IndexTable.Cell style={{ width: '100px', maxWidth: '100px', padding: '8px' }}>
           <Tooltip content={isEnabled ? 'Click to disable' : 'Click to enable'}>
             <button 
               type="button"
@@ -1015,8 +1015,8 @@ export default function Collections() {
           </Tooltip>
         </IndexTable.Cell>
 
-        <IndexTable.Cell>
-          <div onClick={(e) => e.stopPropagation()} style={{ width: '160px', maxWidth: '160px' }}>
+        <IndexTable.Cell style={{ width: '160px', maxWidth: '160px', padding: '8px' }}>
+          <div onClick={(e) => e.stopPropagation()}>
             <Select
               label="Sort type"
               labelHidden
@@ -1028,7 +1028,7 @@ export default function Collections() {
           </div>
         </IndexTable.Cell>
 
-        <IndexTable.Cell>
+        <IndexTable.Cell style={{ width: '100px', maxWidth: '100px', padding: '8px' }}>
           <div onClick={(e) => e.stopPropagation()}>
             <TagAutocomplete
               availableTags={availableTags}
