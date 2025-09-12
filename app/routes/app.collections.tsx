@@ -365,6 +365,21 @@ export default function Collections() {
   const [isSaving, setIsSaving] = useState(false);
   const fetcher = useFetcher();
   
+  // STATE MANAGEMENT (moved to top to fix hoisting issues)
+  const [collectionSettings, setCollectionSettings] = useState<Record<string, {
+    enabled: boolean;
+    sortType: string;
+    exclusionTags: string[];
+  }>>({});
+  const [availableTags, setAvailableTags] = useState<string[]>([]);
+  const [toastMessage, setToastMessage] = useState<string | null>(null);
+  const [selectedTab, setSelectedTab] = useState(0);
+  const [queryValue, setQueryValue] = useState('');
+  const [sortValue, setSortValue] = useState('bestsellers');
+  
+  // Processing state for collection sorting
+  const [processStatus, setProcessStatus] = useState<Record<string, 'idle' | 'processing' | 'ready' | 'error'>>({});
+  
   // Add global debugging
   React.useEffect(() => {
     console.log('🔧 Setting up global event debugging...');
@@ -480,8 +495,9 @@ export default function Collections() {
       }
     }
   }, [fetcher.state, fetcher.data, fetcher.formData, collectionSettings]);
+
   
-  // Early return for debugging
+  // Early return for debugging (moved after state declarations)
   if (!collections || collections.length === 0) {
     return (
       <Page title="Collections" subtitle="Loading collections...">
@@ -497,21 +513,6 @@ export default function Collections() {
       </Page>
     );
   }
-
-  // STATE MANAGEMENT
-  const [collectionSettings, setCollectionSettings] = useState<Record<string, {
-    enabled: boolean;
-    sortType: string;
-    exclusionTags: string[];
-  }>>({});
-  const [availableTags, setAvailableTags] = useState<string[]>([]);
-  const [toastMessage, setToastMessage] = useState<string | null>(null);
-  const [selectedTab, setSelectedTab] = useState(0);
-  const [queryValue, setQueryValue] = useState('');
-  const [sortValue, setSortValue] = useState('bestsellers');
-  
-  // Processing state for collection sorting
-  const [processStatus, setProcessStatus] = useState<Record<string, 'idle' | 'processing' | 'ready' | 'error'>>({});
   
   // FILTERS STATE for IndexFilters
   const [tagFilter, setTagFilter] = useState<string[]>([]);
