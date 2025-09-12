@@ -436,10 +436,16 @@ export default function Collections() {
     if (fetcher.state === 'submitting' && fetcher.formData) {
       const collectionId = fetcher.formData.get('collectionId')?.toString();
       
-      if (collectionId) {
-        pendingOperationsRef.current.push({ collectionId, formData: fetcher.formData });
-        console.log('📝 Storing formData for collection:', collectionId, Object.fromEntries(fetcher.formData));
-        console.log('📋 Total pending operations:', pendingOperationsRef.current.length);
+      if (collectionId && pendingOperationsRef.current) {
+        try {
+          pendingOperationsRef.current.push({ collectionId, formData: fetcher.formData });
+          console.log('📝 Storing formData for collection:', collectionId, Object.fromEntries(fetcher.formData));
+          console.log('📋 Total pending operations:', pendingOperationsRef.current.length);
+        } catch (error) {
+          console.error('❌ Error storing operation in queue:', error);
+          // Initialize if somehow corrupted
+          pendingOperationsRef.current = [{ collectionId, formData: fetcher.formData }];
+        }
       }
     }
     
@@ -453,14 +459,15 @@ export default function Collections() {
     if (fetcher.state === 'idle' && fetcher.data) {
       console.log('✅ Fetcher completed with data:', fetcher.data);
       
-      // Process the OLDEST pending operation since server processes requests in FIFO order
-      if (pendingOperationsRef.current.length > 0) {
+      try {
+        // Process the OLDEST pending operation since server processes requests in FIFO order
+        if (pendingOperationsRef.current && pendingOperationsRef.current.length > 0) {
         console.log('🔍 Processing pending operations:', pendingOperationsRef.current.length);
         
         // Get and remove the first (oldest) operation from the queue
         const operation = pendingOperationsRef.current.shift();
-        if (!operation) {
-          console.warn('⚠️ No operation found in queue despite length > 0');
+        if (!operation || !operation.collectionId || !operation.formData) {
+          console.warn('⚠️ Invalid operation found in queue:', operation);
           return;
         }
         
@@ -548,8 +555,15 @@ export default function Collections() {
         }
         }
         
-        // Log remaining pending operations
-        console.log('🧹 Remaining pending operations after processing:', pendingOperationsRef.current.length);
+          // Log remaining pending operations
+          console.log('🧹 Remaining pending operations after processing:', pendingOperationsRef.current?.length || 0);
+        }
+      } catch (error) {
+        console.error('❌ Error processing pending operations:', error);
+        // Reset the queue on error to prevent further issues
+        if (pendingOperationsRef.current) {
+          pendingOperationsRef.current = [];
+        }
       }
     }
   }, [fetcher.state, fetcher.data, fetcher.formData, collectionSettings]);
