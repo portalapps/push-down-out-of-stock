@@ -426,7 +426,8 @@ export default function Collections() {
       
       if (action === 'updateSetting' && collectionId) {
         if (fetcher.data?.success) {
-          setToastMessage('Settings saved automatically');
+          console.log('✅ Settings save SUCCESS for:', collectionId);
+          // No toast message for settings saved to avoid redundancy
           
           // Check if we need to trigger auto-sort after a settings save
           if ((window as any).pendingAutoSort) {
@@ -448,30 +449,37 @@ export default function Collections() {
             } else {
               console.log('❌ Skipping auto-sort because collection is disabled');
               // Set to ready since save completed but no sort needed
+              console.log('🟢 Setting status to READY for:', collectionId);
               setProcessStatus(prev => ({ ...prev, [collectionId]: 'ready' }));
               delete (window as any).pendingAutoSort;
             }
           } else {
             // No auto-sort pending, just set to ready
+            console.log('🟢 Setting status to READY (no auto-sort) for:', collectionId);
             setProcessStatus(prev => ({ ...prev, [collectionId]: 'ready' }));
           }
         } else {
           console.error('❌ Save failed:', fetcher.data?.error || 'No error message');
+          console.log('🔴 Setting status to ERROR for:', collectionId);
           setProcessStatus(prev => ({ ...prev, [collectionId]: 'error' }));
           setToastMessage(`Failed to save settings: ${fetcher.data?.error || 'Unknown error'}`);
         }
       } else if (action === 'sortCollection' && collectionId) {
         if (fetcher.data?.success) {
+          console.log('✅ Sort SUCCESS for:', collectionId);
+          console.log('🟢 Setting status to READY after sort for:', collectionId);
           setProcessStatus(prev => ({ ...prev, [collectionId]: 'ready' }));
           const stats = fetcher.data.stats;
           setToastMessage(`Collection sorted! ${stats.inStockCount} in-stock, ${stats.outOfStockCount} moved to bottom`);
         } else {
+          console.log('❌ Sort FAILED for:', collectionId);
+          console.log('🔴 Setting status to ERROR after sort for:', collectionId);
           setProcessStatus(prev => ({ ...prev, [collectionId]: 'error' }));
           setToastMessage(`Sort failed: ${fetcher.data.error}`);
         }
       }
     }
-  }, [fetcher.state, fetcher.data]);
+  }, [fetcher.state, fetcher.data, fetcher.formData, collectionSettings]);
   
   // Early return for debugging
   if (!collections || collections.length === 0) {
@@ -659,7 +667,7 @@ export default function Collections() {
     console.log('📋 FormData to submit:', formData);
     
     fetcher.submit(formData, { method: 'POST' });
-  }, [collectionSettings, fetcher]);
+  }, [collectionSettings, fetcher, setProcessStatus]);
 
   // EVENT HANDLERS
   const handleStatusToggle = useCallback(async (collectionId: string) => {
@@ -1193,7 +1201,7 @@ export default function Collections() {
                   ), 
                   width: '150px' 
                 },
-                { title: 'Status', width: '60px' },
+                { title: '', width: '60px' },
               ]}
             >
               {rowMarkup}
