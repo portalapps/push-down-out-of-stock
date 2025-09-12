@@ -33,7 +33,7 @@ import {
   Tooltip,
   Icon,
 } from "@shopify/polaris";
-import { InfoIcon } from "@shopify/polaris-icons";
+import { InfoIcon, CheckIcon, SpinnerIcon } from "@shopify/polaris-icons";
 
 // COMPONENTS
 import { TagAutocomplete } from "../components/TagAutocomplete";
@@ -1043,6 +1043,17 @@ export default function Collections() {
           </div>
         </IndexTable.Cell>
 
+        <IndexTable.Cell>
+          <div style={{ textAlign: 'center' }}>
+            {processStatus[id] === 'processing' && (
+              <Icon source={SpinnerIcon} tone="base" />
+            )}
+            {processStatus[id] === 'ready' && (
+              <Icon source={CheckIcon} tone="success" />
+            )}
+          </div>
+        </IndexTable.Cell>
+
       </IndexTable.Row>
     );
   });
@@ -1083,9 +1094,16 @@ export default function Collections() {
         }
         .Polaris-IndexTable__Table th:nth-child(5),
         .Polaris-IndexTable__Table td:nth-child(5) {
-          width: 100px !important;
-          max-width: 100px !important;
-          min-width: 100px !important;
+          width: 150px !important;
+          max-width: 150px !important;
+          min-width: 150px !important;
+        }
+        .Polaris-IndexTable__Table th:nth-child(6),
+        .Polaris-IndexTable__Table td:nth-child(6) {
+          width: 60px !important;
+          max-width: 60px !important;
+          min-width: 60px !important;
+          text-align: center !important;
         }
       `}</style>
       
@@ -1167,8 +1185,9 @@ export default function Collections() {
                       </Tooltip>
                     </InlineStack>
                   ), 
-                  width: '100px' 
+                  width: '150px' 
                 },
+                { title: 'Status', width: '60px' },
               ]}
             >
               {rowMarkup}
