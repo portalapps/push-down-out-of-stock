@@ -542,6 +542,9 @@ export default function Collections() {
               console.log('❌ Skipping auto-sort because collection is disabled');
               pendingAutoSortsRef.current.delete(collectionId);
             }
+          } else {
+            console.log('🔍 No pending auto-sort found for collection:', collectionId);
+            console.log('🔍 Current pending auto-sorts:', Array.from(pendingAutoSortsRef.current.keys()));
           }
         } else {
           console.error('❌ Save failed:', fetcher.data?.error || 'No error message');
@@ -837,6 +840,7 @@ export default function Collections() {
       console.log('🎯 Setting pendingAutoSort for collection:', collectionId, sortType);
       // Set a flag to trigger sorting after the save completes
       pendingAutoSortsRef.current.set(collectionId, { collectionId, sortType });
+      console.log('🎯 Updated pending auto-sorts:', Array.from(pendingAutoSortsRef.current.keys()));
     } else {
       console.log('❌ NOT setting pendingAutoSort - collection is disabled');
     }
