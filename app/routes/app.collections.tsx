@@ -1099,7 +1099,7 @@ export default function Collections() {
                 { title: 'Collection' },
                 { title: 'Status' },
                 { title: 'Sort Type' },
-                { title: 'Exclusion Tags', width: '250px' },
+                { title: 'Exclusion Tags', width: '150px' },
               ]}
             >
               {rowMarkup}
