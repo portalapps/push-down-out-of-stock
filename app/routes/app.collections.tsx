@@ -547,6 +547,22 @@ export default function Collections() {
     collectionSettings[collection.id]?.enabled
   );
 
+  // INDEXFILTERS CONFIGURATION (defined after enabledCollections for counts)
+  const tabs = [
+    {
+      content: `All (${collections.length})`,
+      index: 0,
+      onAction: () => handleTabChange(0),
+      id: 'all-collections-1',
+    },
+    {
+      content: `Push down enabled (${enabledCollections.length})`,
+      index: 1,
+      onAction: () => handleTabChange(1),
+      id: 'enabled-collections-2',
+    },
+  ];
+
   const filteredCollections = selectedTab === 0 ? collections : enabledCollections;
 
   // SEARCH AND TAG FILTER FUNCTIONALITY
@@ -845,22 +861,6 @@ export default function Collections() {
     setSelectedTab(tabIndex);
   }, []);
 
-  // INDEXFILTERS CONFIGURATION
-  const tabs = [
-    {
-      content: `All`,
-      index: 0,
-      onAction: () => handleTabChange(0),
-      id: 'all-collections-1',
-    },
-    {
-      content: `Push down enabled`,
-      index: 1,
-      onAction: () => handleTabChange(1),
-      id: 'enabled-collections-2',
-    },
-  ];
-
   const sortOptions = [
     { label: 'Best Selling', value: 'bestsellers asc' },
     { label: 'Product Title A-Z', value: 'alpha_asc asc' },
@@ -1110,7 +1110,8 @@ export default function Collections() {
                         <Icon source={InfoIcon} tone="base" />
                       </Tooltip>
                     </InlineStack>
-                  )
+                  ),
+                  width: '100px'
                 },
                 { 
                   title: (
@@ -1120,7 +1121,8 @@ export default function Collections() {
                         <Icon source={InfoIcon} tone="base" />
                       </Tooltip>
                     </InlineStack>
-                  )
+                  ),
+                  width: '150px'
                 },
                 { 
                   title: (
