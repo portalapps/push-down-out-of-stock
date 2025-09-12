@@ -442,7 +442,10 @@ export default function Collections() {
       if (action === 'updateSetting' && collectionId) {
         if (fetcher.data?.success) {
           console.log('✅ Settings save SUCCESS for:', collectionId);
-          // No toast message for settings saved to avoid redundancy
+          
+          // ALWAYS set to ready first - this replaces the old popup
+          console.log('🟢 Setting status to READY for:', collectionId);
+          setProcessStatus(prev => ({ ...prev, [collectionId]: 'ready' }));
           
           // Check if we need to trigger auto-sort after a settings save
           if ((window as any).pendingAutoSort) {
@@ -456,22 +459,16 @@ export default function Collections() {
               // Clear the pending flag
               delete (window as any).pendingAutoSort;
               
-              // Keep processing status since we're now sorting
+              // Set back to processing for the sort operation
+              setProcessStatus(prev => ({ ...prev, [pendingId]: 'processing' }));
               const sortFormData = new FormData();
               sortFormData.append('action', 'sortCollection');
               sortFormData.append('collectionId', pendingId);
               fetcher.submit(sortFormData, { method: 'POST' });
             } else {
               console.log('❌ Skipping auto-sort because collection is disabled');
-              // Set to ready since save completed but no sort needed
-              console.log('🟢 Setting status to READY for:', collectionId);
-              setProcessStatus(prev => ({ ...prev, [collectionId]: 'ready' }));
               delete (window as any).pendingAutoSort;
             }
-          } else {
-            // No auto-sort pending, just set to ready
-            console.log('🟢 Setting status to READY (no auto-sort) for:', collectionId);
-            setProcessStatus(prev => ({ ...prev, [collectionId]: 'ready' }));
           }
         } else {
           console.error('❌ Save failed:', fetcher.data?.error || 'No error message');
