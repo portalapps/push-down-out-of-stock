@@ -1057,17 +1057,25 @@ export default function Collections() {
       <style>{`
         .Polaris-IndexTable__Table {
           table-layout: fixed !important;
+          width: 100% !important;
         }
+        .Polaris-IndexTable__Table th:nth-child(1),
+        .Polaris-IndexTable__Table td:nth-child(1) {
+          width: auto !important;
+        }
+        .Polaris-IndexTable__Table th:nth-child(2),
         .Polaris-IndexTable__Table td:nth-child(2) {
           width: 100px !important;
           max-width: 100px !important;
           min-width: 100px !important;
         }
+        .Polaris-IndexTable__Table th:nth-child(3),
         .Polaris-IndexTable__Table td:nth-child(3) {
           width: 160px !important;
           max-width: 160px !important;
           min-width: 160px !important;
         }
+        .Polaris-IndexTable__Table th:nth-child(4),
         .Polaris-IndexTable__Table td:nth-child(4) {
           width: 100px !important;
           max-width: 100px !important;
