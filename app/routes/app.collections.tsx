@@ -32,8 +32,9 @@ import {
   Banner,
   Tooltip,
   Icon,
+  Spinner,
 } from "@shopify/polaris";
-import { InfoIcon, CheckIcon, SpinnerIcon } from "@shopify/polaris-icons";
+import { InfoIcon, CheckIcon } from "@shopify/polaris-icons";
 
 // COMPONENTS
 import { TagAutocomplete } from "../components/TagAutocomplete";
@@ -1046,7 +1047,7 @@ export default function Collections() {
         <IndexTable.Cell>
           <div style={{ textAlign: 'center' }}>
             {processStatus[id] === 'processing' && (
-              <Icon source={SpinnerIcon} tone="base" />
+              <Spinner size="small" />
             )}
             {processStatus[id] === 'ready' && (
               <Icon source={CheckIcon} tone="success" />
