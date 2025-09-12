@@ -421,6 +421,9 @@ export default function Collections() {
     processStatus: processStatus
   });
   
+  // Store the last formData when submitting to use later
+  const lastFormDataRef = React.useRef<FormData | null>(null);
+  
   // Debug fetcher state changes
   React.useEffect(() => {
     console.log('🌐 Fetcher state changed:', { 
@@ -429,6 +432,12 @@ export default function Collections() {
       formData: fetcher.formData ? Object.fromEntries(fetcher.formData) : null
     });
     
+    // Store formData when submitting
+    if (fetcher.state === 'submitting' && fetcher.formData) {
+      lastFormDataRef.current = fetcher.formData;
+      console.log('📝 Storing formData for later use:', Object.fromEntries(fetcher.formData));
+    }
+    
     // Log what triggered this fetcher call
     if (fetcher.formData) {
       console.log('🕵️ Fetcher was triggered with formData:', Object.fromEntries(fetcher.formData));
@@ -436,10 +445,10 @@ export default function Collections() {
       console.trace('Fetcher state change triggered from:');
     }
     
-    if (fetcher.state === 'idle' && fetcher.data && fetcher.formData) {
+    if (fetcher.state === 'idle' && fetcher.data && lastFormDataRef.current) {
       console.log('✅ Fetcher completed with data:', fetcher.data);
-      const action = fetcher.formData.get('action')?.toString();
-      const collectionId = fetcher.formData.get('collectionId')?.toString();
+      const action = lastFormDataRef.current.get('action')?.toString();
+      const collectionId = lastFormDataRef.current.get('collectionId')?.toString();
       console.log('🔍 Processing action:', action, 'for collection:', collectionId);
       
       if (action === 'updateSetting' && collectionId) {
@@ -449,6 +458,19 @@ export default function Collections() {
           // ALWAYS set to ready first - this replaces the old popup
           console.log('🟢 Setting status to READY for:', collectionId);
           setProcessStatus(prev => ({ ...prev, [collectionId]: 'ready' }));
+          
+          // Clear the ready status after 3 seconds unless another operation starts
+          setTimeout(() => {
+            setProcessStatus(prev => {
+              // Only clear if still showing 'ready' (not overwritten by new operation)
+              if (prev[collectionId] === 'ready') {
+                const newStatus = { ...prev };
+                delete newStatus[collectionId];
+                return newStatus;
+              }
+              return prev;
+            });
+          }, 3000);
           
           // Check if we need to trigger auto-sort after a settings save
           if ((window as any).pendingAutoSort) {
@@ -484,6 +506,20 @@ export default function Collections() {
           console.log('✅ Sort SUCCESS for:', collectionId);
           console.log('🟢 Setting status to READY after sort for:', collectionId);
           setProcessStatus(prev => ({ ...prev, [collectionId]: 'ready' }));
+          
+          // Clear the ready status after 3 seconds unless another operation starts
+          setTimeout(() => {
+            setProcessStatus(prev => {
+              // Only clear if still showing 'ready' (not overwritten by new operation)
+              if (prev[collectionId] === 'ready') {
+                const newStatus = { ...prev };
+                delete newStatus[collectionId];
+                return newStatus;
+              }
+              return prev;
+            });
+          }, 3000);
+          
           const stats = fetcher.data.stats;
           setToastMessage(`Collection sorted! ${stats.inStockCount} in-stock, ${stats.outOfStockCount} moved to bottom`);
         } else {
@@ -493,6 +529,9 @@ export default function Collections() {
           setToastMessage(`Sort failed: ${fetcher.data.error}`);
         }
       }
+      
+      // Clear the stored formData to prevent duplicate processing
+      lastFormDataRef.current = null;
     }
   }, [fetcher.state, fetcher.data, fetcher.formData, collectionSettings]);
 
