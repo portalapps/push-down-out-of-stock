@@ -149,7 +149,8 @@ export function TagAutocomplete({
     // Focus the input after it becomes visible
     setTimeout(() => {
       inputRef.current?.focus();
-    }, 10);
+      inputRef.current?.select(); // Select any existing text
+    }, 50); // Increased timeout to ensure DOM is ready
   }, [disabled]);
 
   // HANDLE INPUT CLOSE (Escape or click outside)
@@ -368,20 +369,7 @@ export function TagAutocomplete({
               onKeyDown={handleKeyDown}
               placeholder={placeholder}
               autoComplete="off"
-              onBlur={() => {
-                // Delay to allow clicking on suggestions
-                setTimeout(() => {
-                  setIsFocused(false);
-                  setShowSuggestions(false);
-                  setSelectedIndex(-1);
-                  // Only add tag on blur if input has value 
-                  if (inputValue?.trim()) {
-                    simpleInputSubmit();
-                  } else {
-                    handleInputClose();
-                  }
-                }, 150);
-              }}
+              autoFocus={true}
               onFocus={() => {
                 setIsFocused(true);
                 // Suggestions will be shown via useEffect based on focus state
