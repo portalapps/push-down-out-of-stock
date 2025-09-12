@@ -458,7 +458,12 @@ export default function Collections() {
         console.log('🔍 Processing pending operations:', pendingOperationsRef.current.length);
         
         // Get and remove the first (oldest) operation from the queue
-        const operation = pendingOperationsRef.current.shift()!;
+        const operation = pendingOperationsRef.current.shift();
+        if (!operation) {
+          console.warn('⚠️ No operation found in queue despite length > 0');
+          return;
+        }
+        
         const { collectionId, formData } = operation;
         const action = formData.get('action')?.toString();
         
