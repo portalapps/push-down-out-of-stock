@@ -421,8 +421,8 @@ export default function Collections() {
     processStatus: processStatus
   });
   
-  // Store the last formData when submitting to use later
-  const lastFormDataRef = React.useRef<FormData | null>(null);
+  // Store all operations in order to handle rapid changes (FIFO queue)
+  const pendingOperationsRef = React.useRef<Array<{collectionId: string, formData: FormData}>>([]); 
   
   // Debug fetcher state changes
   React.useEffect(() => {
@@ -432,10 +432,15 @@ export default function Collections() {
       formData: fetcher.formData ? Object.fromEntries(fetcher.formData) : null
     });
     
-    // Store formData when submitting
+    // Store formData when submitting in FIFO order (preserves all operations)
     if (fetcher.state === 'submitting' && fetcher.formData) {
-      lastFormDataRef.current = fetcher.formData;
-      console.log('📝 Storing formData for later use:', Object.fromEntries(fetcher.formData));
+      const collectionId = fetcher.formData.get('collectionId')?.toString();
+      
+      if (collectionId) {
+        pendingOperationsRef.current.push({ collectionId, formData: fetcher.formData });
+        console.log('📝 Storing formData for collection:', collectionId, Object.fromEntries(fetcher.formData));
+        console.log('📋 Total pending operations:', pendingOperationsRef.current.length);
+      }
     }
     
     // Log what triggered this fetcher call
@@ -445,13 +450,21 @@ export default function Collections() {
       console.trace('Fetcher state change triggered from:');
     }
     
-    if (fetcher.state === 'idle' && fetcher.data && lastFormDataRef.current) {
+    if (fetcher.state === 'idle' && fetcher.data) {
       console.log('✅ Fetcher completed with data:', fetcher.data);
-      const action = lastFormDataRef.current.get('action')?.toString();
-      const collectionId = lastFormDataRef.current.get('collectionId')?.toString();
-      console.log('🔍 Processing action:', action, 'for collection:', collectionId);
       
-      if (action === 'updateSetting' && collectionId) {
+      // Process the OLDEST pending operation since server processes requests in FIFO order
+      if (pendingOperationsRef.current.length > 0) {
+        console.log('🔍 Processing pending operations:', pendingOperationsRef.current.length);
+        
+        // Get and remove the first (oldest) operation from the queue
+        const operation = pendingOperationsRef.current.shift()!;
+        const { collectionId, formData } = operation;
+        const action = formData.get('action')?.toString();
+        
+        console.log('🎯 Processing OLDEST operation for collection:', collectionId, 'action:', action);
+      
+        if (action === 'updateSetting' && collectionId) {
         if (fetcher.data?.success) {
           console.log('✅ Settings save SUCCESS for:', collectionId);
           
@@ -528,10 +541,11 @@ export default function Collections() {
           setProcessStatus(prev => ({ ...prev, [collectionId]: 'error' }));
           setToastMessage(`Sort failed: ${fetcher.data.error}`);
         }
+        }
+        
+        // Log remaining pending operations
+        console.log('🧹 Remaining pending operations after processing:', pendingOperationsRef.current.length);
       }
-      
-      // Clear the stored formData to prevent duplicate processing
-      lastFormDataRef.current = null;
     }
   }, [fetcher.state, fetcher.data, fetcher.formData, collectionSettings]);
 
