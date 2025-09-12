@@ -474,18 +474,32 @@ export default function Collections() {
     if (fetcher.state === 'idle' && fetcher.data) {
       console.log('✅ Fetcher completed with data:', fetcher.data);
       
-      try {
-        // Match response to the most recent pending request
-        if (pendingOperationsRef.current && pendingOperationsRef.current.size > 0 && requestOrderRef.current && requestOrderRef.current.length > 0) {
+      // Match response to the most recent pending request
+      if (pendingOperationsRef.current && pendingOperationsRef.current.size > 0 && requestOrderRef.current && requestOrderRef.current.length > 0) {
           console.log('🔍 Processing pending collections:', Array.from(pendingOperationsRef.current.keys()));
           console.log('🔍 Request order queue:', requestOrderRef.current);
           
-          // Get the oldest request from the order (FIFO for response matching)
-          const collectionId = requestOrderRef.current.shift()!;
-          const operationData = pendingOperationsRef.current.get(collectionId);
+          // Find the first collection in the queue that actually has pending data
+          let operationData: {formData: FormData, timestamp: number} | undefined;
+          let collectionId: string | undefined;
           
-          if (!operationData || !operationData.formData) {
-            console.warn('⚠️ No operation data found for collection:', collectionId);
+          // Remove requests from queue until we find one with pending data
+          while (requestOrderRef.current.length > 0) {
+            const queuedCollectionId = requestOrderRef.current.shift()!;
+            const queuedOperationData = pendingOperationsRef.current.get(queuedCollectionId);
+            
+            if (queuedOperationData && queuedOperationData.formData) {
+              // Found a collection with pending data
+              operationData = queuedOperationData;
+              collectionId = queuedCollectionId;
+              break;
+            } else {
+              console.log('⚠️ Skipping queue item with no pending data:', queuedCollectionId);
+            }
+          }
+          
+          if (!operationData || !collectionId) {
+            console.warn('⚠️ No collections with pending operation data found in queue');
             return;
           }
           
@@ -495,8 +509,8 @@ export default function Collections() {
           
           // Remove this collection from pending (latest operation processed)
           pendingOperationsRef.current.delete(collectionId);
-        
-        console.log('🎯 Processing OLDEST operation for collection:', collectionId, 'action:', action);
+          
+          console.log('🎯 Processing OLDEST operation for collection:', collectionId, 'action:', action);
       
         if (action === 'updateSetting' && collectionId) {
         if (fetcher.data?.success) {
@@ -579,21 +593,10 @@ export default function Collections() {
           setProcessStatus(prev => ({ ...prev, [collectionId]: 'error' }));
           setToastMessage(`Sort failed: ${fetcher.data.error}`);
         }
-        }
         
-          // Log remaining pending operations
-          console.log('🧹 Remaining pending collections:', Array.from(pendingOperationsRef.current?.keys() || []));
-          console.log('🧹 Remaining request order:', requestOrderRef.current);
-        }
-      } catch (error) {
-        console.error('❌ Error processing pending operations:', error);
-        // Reset both refs on error to prevent further issues
-        if (pendingOperationsRef.current) {
-          pendingOperationsRef.current = new Map();
-        }
-        if (requestOrderRef.current) {
-          requestOrderRef.current = [];
-        }
+        // Log remaining pending operations
+        console.log('🧹 Remaining pending collections:', Array.from(pendingOperationsRef.current?.keys() || []));
+        console.log('🧹 Remaining request order:', requestOrderRef.current);
       }
     }
   }, [fetcher.state, fetcher.data, fetcher.formData, collectionSettings]);
