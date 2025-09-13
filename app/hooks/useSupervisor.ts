@@ -203,6 +203,7 @@ export function useSupervisor(initialCollections: any[], existingSettings: any[]
           pendingOperationsRef.current.delete(collectionId);
         }
       }
+    }
     } catch (error) {
       console.error('❌ SUPERVISOR Error in fetcher response handler:', error);
       console.error('❌ Fetcher state:', mainFetcher.state);
