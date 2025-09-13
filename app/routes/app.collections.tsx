@@ -377,10 +377,13 @@ export default function Collections() {
   const [queryValue, setQueryValue] = useState('');
   const [sortValue, setSortValue] = useState('bestsellers');
   
-  // Processing state for collection sorting
+  // Processing state for collection sorting - using same robust tracking as operations
   const [processStatus, setProcessStatus] = useState<Record<string, 'idle' | 'processing' | 'ready' | 'error'>>({});
   
-  // Add timeout cleanup for stuck processing states
+  // Track latest UI status per collection (same pattern as pendingOperationsRef)
+  const pendingUIStatusRef = React.useRef<Map<string, {status: 'processing' | 'ready' | 'error', timestamp: number}>>(new Map());
+  
+  // Add timeout cleanup for stuck processing states (using robust UI status tracking)
   React.useEffect(() => {
     const interval = setInterval(() => {
       setProcessStatus(prev => {
@@ -391,11 +394,16 @@ export default function Collections() {
         // Clear any processing states that have been active for more than 10 seconds
         Object.entries(updated).forEach(([id, status]) => {
           if (status === 'processing') {
-            // Check if this collection has been processing too long without pending operations
+            // Check both pending operations and UI status
             const hasPendingOperation = pendingOperationsRef.current?.has(id);
-            if (!hasPendingOperation) {
+            const pendingUIStatus = pendingUIStatusRef.current.get(id);
+            const uiStatusAge = pendingUIStatus ? now - pendingUIStatus.timestamp : 0;
+            
+            // Clear if no pending operation and UI status is old (> 10 seconds)
+            if (!hasPendingOperation && uiStatusAge > 10000) {
               console.log('⏰ Timeout: Clearing stuck processing state for:', id);
               delete updated[id];
+              pendingUIStatusRef.current.delete(id);
               hasChanges = true;
             }
           }
@@ -544,17 +552,25 @@ export default function Collections() {
         if (fetcher.data?.success) {
           console.log('✅ Settings save SUCCESS for:', collectionId);
           
-          // ALWAYS set to ready first - this replaces the old popup
-          console.log('🟢 Setting status to READY for:', collectionId);
-          setProcessStatus(prev => ({ ...prev, [collectionId]: 'ready' }));
+          // Use robust UI status tracking - only update if this is the latest operation
+          const pendingUIStatus = pendingUIStatusRef.current.get(collectionId);
+          if (pendingUIStatus && pendingUIStatus.status === 'processing') {
+            console.log('🟢 Setting status to READY for latest operation:', collectionId);
+            pendingUIStatusRef.current.set(collectionId, { status: 'ready', timestamp: Date.now() });
+            setProcessStatus(prev => ({ ...prev, [collectionId]: 'ready' }));
+          } else {
+            console.log('⚠️ Skipping UI update - not the latest operation for:', collectionId);
+          }
           
           // Clear the ready status after 3 seconds unless another operation starts
           setTimeout(() => {
             setProcessStatus(prev => {
               // Only clear if still showing 'ready' (not overwritten by new operation)
-              if (prev[collectionId] === 'ready') {
+              const currentUIStatus = pendingUIStatusRef.current.get(collectionId);
+              if (prev[collectionId] === 'ready' && currentUIStatus?.status === 'ready') {
                 const newStatus = { ...prev };
                 delete newStatus[collectionId];
+                pendingUIStatusRef.current.delete(collectionId);
                 return newStatus;
               }
               return prev;
@@ -574,7 +590,9 @@ export default function Collections() {
               // Remove this collection's pending auto-sort
               pendingAutoSortsRef.current.delete(collectionId);
               
-              // Set back to processing for the sort operation
+              // Set back to processing for the sort operation (using robust UI tracking)
+              const timestamp = Date.now();
+              pendingUIStatusRef.current.set(collectionId, { status: 'processing', timestamp });
               setProcessStatus(prev => ({ ...prev, [collectionId]: 'processing' }));
               const sortFormData = new FormData();
               sortFormData.append('action', 'sortCollection');
@@ -590,23 +608,41 @@ export default function Collections() {
           }
         } else {
           console.error('❌ Save failed:', fetcher.data?.error || 'No error message');
-          console.log('🔴 Setting status to ERROR for:', collectionId);
-          setProcessStatus(prev => ({ ...prev, [collectionId]: 'error' }));
-          setToastMessage(`Failed to save settings: ${fetcher.data?.error || 'Unknown error'}`);
+          
+          // Use robust UI status tracking for errors too
+          const pendingUIStatus = pendingUIStatusRef.current.get(collectionId);
+          if (pendingUIStatus && pendingUIStatus.status === 'processing') {
+            console.log('🔴 Setting status to ERROR for latest operation:', collectionId);
+            pendingUIStatusRef.current.set(collectionId, { status: 'error', timestamp: Date.now() });
+            setProcessStatus(prev => ({ ...prev, [collectionId]: 'error' }));
+            setToastMessage(`Failed to save settings: ${fetcher.data?.error || 'Unknown error'}`);
+          } else {
+            console.log('⚠️ Skipping error UI update - not the latest operation for:', collectionId);
+          }
         }
       } else if (action === 'sortCollection' && collectionId) {
         if (fetcher.data?.success) {
           console.log('✅ Sort SUCCESS for:', collectionId);
-          console.log('🟢 Setting status to READY after sort for:', collectionId);
-          setProcessStatus(prev => ({ ...prev, [collectionId]: 'ready' }));
+          
+          // Use robust UI status tracking for sort success
+          const pendingUIStatus = pendingUIStatusRef.current.get(collectionId);
+          if (pendingUIStatus && pendingUIStatus.status === 'processing') {
+            console.log('🟢 Setting status to READY after sort for latest operation:', collectionId);
+            pendingUIStatusRef.current.set(collectionId, { status: 'ready', timestamp: Date.now() });
+            setProcessStatus(prev => ({ ...prev, [collectionId]: 'ready' }));
+          } else {
+            console.log('⚠️ Skipping sort success UI update - not the latest operation for:', collectionId);
+          }
           
           // Clear the ready status after 3 seconds unless another operation starts
           setTimeout(() => {
             setProcessStatus(prev => {
               // Only clear if still showing 'ready' (not overwritten by new operation)
-              if (prev[collectionId] === 'ready') {
+              const currentUIStatus = pendingUIStatusRef.current.get(collectionId);
+              if (prev[collectionId] === 'ready' && currentUIStatus?.status === 'ready') {
                 const newStatus = { ...prev };
                 delete newStatus[collectionId];
+                pendingUIStatusRef.current.delete(collectionId);
                 return newStatus;
               }
               return prev;
@@ -617,9 +653,17 @@ export default function Collections() {
           setToastMessage(`Collection sorted! ${stats.inStockCount} in-stock, ${stats.outOfStockCount} moved to bottom`);
         } else {
           console.log('❌ Sort FAILED for:', collectionId);
-          console.log('🔴 Setting status to ERROR after sort for:', collectionId);
-          setProcessStatus(prev => ({ ...prev, [collectionId]: 'error' }));
-          setToastMessage(`Sort failed: ${fetcher.data.error}`);
+          
+          // Use robust UI status tracking for sort errors
+          const pendingUIStatus = pendingUIStatusRef.current.get(collectionId);
+          if (pendingUIStatus && pendingUIStatus.status === 'processing') {
+            console.log('🔴 Setting status to ERROR after sort for latest operation:', collectionId);
+            pendingUIStatusRef.current.set(collectionId, { status: 'error', timestamp: Date.now() });
+            setProcessStatus(prev => ({ ...prev, [collectionId]: 'error' }));
+            setToastMessage(`Sort failed: ${fetcher.data.error}`);
+          } else {
+            console.log('⚠️ Skipping sort error UI update - not the latest operation for:', collectionId);
+          }
         }
         
         // Log remaining pending operations
@@ -791,7 +835,7 @@ export default function Collections() {
     useIndexResourceState(sortedCollections, { resourceIDResolver });
 
 
-  // AUTO-SAVE FUNCTION using useFetcher (simplified version)
+  // AUTO-SAVE FUNCTION using useFetcher (with robust UI status tracking)
   const autoSave = useCallback((collectionId: string, updates: Partial<{
     enabled: boolean;
     sortType: string;
@@ -799,7 +843,9 @@ export default function Collections() {
   }>) => {
     console.log('💾 autoSave called with:', { collectionId, updates });
     
-    // Set processing status immediately when settings change
+    // Use robust UI status tracking (same pattern as operations)
+    const timestamp = Date.now();
+    pendingUIStatusRef.current.set(collectionId, { status: 'processing', timestamp });
     console.log('🔵 Setting status to PROCESSING for:', collectionId);
     setProcessStatus(prev => ({ ...prev, [collectionId]: 'processing' }));
     
@@ -938,7 +984,9 @@ export default function Collections() {
   const handleSortCollection = useCallback(async (collectionId: string) => {
     console.log('🎯 Starting sort for collection:', collectionId);
     
-    // Set processing status
+    // Use robust UI status tracking for manual sorts
+    const timestamp = Date.now();
+    pendingUIStatusRef.current.set(collectionId, { status: 'processing', timestamp });
     setProcessStatus(prev => ({ ...prev, [collectionId]: 'processing' }));
     
     try {
