@@ -288,6 +288,8 @@ export const action = async ({ request }: ActionFunctionArgs) => {
   }
   
   if (action === 'updateSetting') {
+    let operationTag = null; // Initialize at function scope for error handling
+    
     try {
       const collectionId = formData.get('collectionId')?.toString();
       const enabled = formData.get('enabled')?.toString() === 'true';
@@ -295,7 +297,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
       const exclusionTagsStr = formData.get('exclusionTags')?.toString();
       const exclusionTags = exclusionTagsStr ? JSON.parse(exclusionTagsStr) : [];
       const operationTagStr = formData.get('operationTag')?.toString();
-      const operationTag = operationTagStr ? JSON.parse(operationTagStr) : null;
+      operationTag = operationTagStr ? JSON.parse(operationTagStr) : null;
       
       console.log('📥 SUPERVISOR updateSetting received:', { collectionId, enabled, sortType, exclusionTags, operationTag });
       
@@ -354,6 +356,9 @@ export const action = async ({ request }: ActionFunctionArgs) => {
       
       console.log('✅ SUPERVISOR updateSetting completed successfully:', { collectionId, enabled, sortType });
       
+      // Initialize sort stats variables
+      let sortStats = null;
+      
       // If enabled, trigger auto-sort and return after sort completion
       if (enabled) {
         console.log('🎯 SUPERVISOR triggering auto-sort after settings save:', collectionId);
@@ -377,6 +382,13 @@ export const action = async ({ request }: ActionFunctionArgs) => {
           });
         }
         
+        // Store stats for response
+        sortStats = {
+          inStockCount: inStock.length,
+          outOfStockCount: outOfStock.length,
+          totalProducts: sortedProductIds.length
+        };
+        
         console.log('✅ SUPERVISOR auto-sort completed successfully:', collectionId);
       }
       
@@ -384,11 +396,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
         success: true, 
         operationTag,
         message: enabled ? 'Settings saved and collection sorted' : 'Settings saved',
-        stats: enabled ? {
-          inStockCount: inStock.length,
-          outOfStockCount: outOfStock.length,
-          totalProducts: sortedProductIds.length
-        } : null
+        stats: sortStats
       });
     } catch (error) {
       console.error('❌ SUPERVISOR Error saving collection setting:', error);
