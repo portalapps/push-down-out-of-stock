@@ -40,7 +40,7 @@ export function detectStateDifferences(
     if (!currentState) {
       differences.push({
         collectionId,
-        currentState: { enabled: false, sortType: 'bestsellers', exclusionTags: [] },
+        currentState: { enabled: false, sortType: 'bestsellers asc', exclusionTags: [] },
         targetState,
         operationType: targetState.enabled ? 'save-and-sort' : 'save'
       });
@@ -112,7 +112,7 @@ export function isTagValid(
 export function normalizeCollectionState(settings: any): CollectionState {
   return {
     enabled: Boolean(settings?.enabled),
-    sortType: settings?.sortType || 'bestsellers',
+    sortType: settings?.sortType || 'bestsellers asc',
     exclusionTags: Array.isArray(settings?.exclusionTags) ? [...settings.exclusionTags] : []
   };
 }
