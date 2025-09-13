@@ -47,37 +47,55 @@ export function useSupervisor(initialCollections: any[], existingSettings: any[]
 
   // Initialize states from existing data
   useEffect(() => {
-    const initialUIState: UIState = {};
-    const initialImplementedState: ImplementedState = {};
-    
-    // Build state from existing settings
-    existingSettings.forEach((setting: any) => {
-      const normalizedState = normalizeCollectionState(setting);
-      initialUIState[setting.collectionId] = normalizedState;
-      initialImplementedState[setting.collectionId] = { ...normalizedState };
-    });
-    
-    // Add collections without settings
-    initialCollections.forEach((collection: any) => {
-      if (!initialUIState[collection.id]) {
-        const defaultState = normalizeCollectionState({});
-        initialUIState[collection.id] = defaultState;
-        initialImplementedState[collection.id] = { ...defaultState };
+    try {
+      const initialUIState: UIState = {};
+      const initialImplementedState: ImplementedState = {};
+      
+      // Build state from existing settings
+      if (Array.isArray(existingSettings)) {
+        existingSettings.forEach((setting: any) => {
+          if (setting && setting.collectionId) {
+            const normalizedState = normalizeCollectionState(setting);
+            initialUIState[setting.collectionId] = normalizedState;
+            initialImplementedState[setting.collectionId] = { ...normalizedState };
+          }
+        });
       }
-    });
-    
-    setUIState(initialUIState);
-    setImplementedState(initialImplementedState);
+      
+      // Add collections without settings
+      if (Array.isArray(initialCollections)) {
+        initialCollections.forEach((collection: any) => {
+          if (collection && collection.id && !initialUIState[collection.id]) {
+            const defaultState = normalizeCollectionState({});
+            initialUIState[collection.id] = defaultState;
+            initialImplementedState[collection.id] = { ...defaultState };
+          }
+        });
+      }
+      
+      console.log('🏗️ SUPERVISOR Initializing states:', {
+        uiStateKeys: Object.keys(initialUIState),
+        implementedStateKeys: Object.keys(initialImplementedState)
+      });
+      
+      setUIState(initialUIState);
+      setImplementedState(initialImplementedState);
+    } catch (error) {
+      console.error('❌ SUPERVISOR Error initializing states:', error);
+      console.error('❌ Initial Collections:', initialCollections);
+      console.error('❌ Existing Settings:', existingSettings);
+    }
   }, [initialCollections, existingSettings]);
 
   // Core supervisor function
   const runSupervisor = useCallback(() => {
-    const differences = detectStateDifferences(uiState, implementedState);
-    
-    console.log('🔍 Supervisor check:', {
-      differences: differences.length,
-      details: differences.map(d => `${d.collectionId}: ${d.operationType}`)
-    });
+    try {
+      const differences = detectStateDifferences(uiState, implementedState);
+      
+      console.log('🔍 SUPERVISOR check:', {
+        differences: differences.length,
+        details: differences.map(d => `${d.collectionId}: ${d.operationType}`)
+      });
     
     // Trigger operations for each difference
     differences.forEach(({ collectionId, targetState }) => {
@@ -105,15 +123,22 @@ export function useSupervisor(initialCollections: any[], existingSettings: any[]
       const fetcher = getFetcher(collectionId);
       fetcher.submit(formData, { method: 'POST' });
     });
+    } catch (error) {
+      console.error('❌ SUPERVISOR Error in runSupervisor:', error);
+      console.error('❌ UI State:', uiState);
+      console.error('❌ Implemented State:', implementedState);
+      console.error('❌ Operation Status:', operationStatus);
+    }
   }, [uiState, implementedState, operationStatus, getFetcher]);
 
   // Handle fetcher responses
   useEffect(() => {
-    if (mainFetcher.state === 'idle' && mainFetcher.data) {
-      console.log('📨 Fetcher response received:', mainFetcher.data);
-      
-      // Extract operation tag from response
-      const responseTag = mainFetcher.data.operationTag;
+    try {
+      if (mainFetcher.state === 'idle' && mainFetcher.data) {
+        console.log('📨 SUPERVISOR Fetcher response received:', mainFetcher.data);
+        
+        // Extract operation tag from response
+        const responseTag = mainFetcher.data.operationTag;
       
       if (responseTag && isTagValid(responseTag, uiState)) {
         const { collectionId } = responseTag;
@@ -178,6 +203,11 @@ export function useSupervisor(initialCollections: any[], existingSettings: any[]
           pendingOperationsRef.current.delete(collectionId);
         }
       }
+    } catch (error) {
+      console.error('❌ SUPERVISOR Error in fetcher response handler:', error);
+      console.error('❌ Fetcher state:', mainFetcher.state);
+      console.error('❌ Fetcher data:', mainFetcher.data);
+      console.error('❌ UI State:', uiState);
     }
   }, [mainFetcher.state, mainFetcher.data, uiState]);
 
@@ -220,18 +250,37 @@ export function useSupervisor(initialCollections: any[], existingSettings: any[]
 
   // Public API
   const updateCollectionState = useCallback((collectionId: string, updates: Partial<CollectionState>) => {
-    setUIState(prev => ({
-      ...prev,
-      [collectionId]: {
-        ...prev[collectionId],
-        ...updates
-      }
-    }));
+    try {
+      console.log('🔄 SUPERVISOR updateCollectionState:', collectionId, updates);
+      
+      setUIState(prev => {
+        if (!prev[collectionId]) {
+          console.warn('⚠️ SUPERVISOR Collection not found in UI state:', collectionId);
+          return prev;
+        }
+        
+        return {
+          ...prev,
+          [collectionId]: {
+            ...prev[collectionId],
+            ...updates
+          }
+        };
+      });
+    } catch (error) {
+      console.error('❌ SUPERVISOR Error in updateCollectionState:', error);
+      console.error('❌ Collection ID:', collectionId);
+      console.error('❌ Updates:', updates);
+    }
   }, []);
 
   const retryOperation = useCallback((collectionId: string) => {
-    console.log('🔄 Manual retry triggered for:', collectionId);
-    runSupervisor();
+    try {
+      console.log('🔄 SUPERVISOR Manual retry triggered for:', collectionId);
+      runSupervisor();
+    } catch (error) {
+      console.error('❌ SUPERVISOR Error in retryOperation:', error);
+    }
   }, [runSupervisor]);
 
   return {

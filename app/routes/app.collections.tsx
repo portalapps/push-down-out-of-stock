@@ -418,6 +418,24 @@ export default function Collections() {
   console.log('🏗️ SUPERVISOR Collections component rendering - STEP 2', { collectionsLength: collections?.length });
   
   // SUPERVISOR PATTERN - replaces all complex state management
+  let supervisorHook;
+  try {
+    supervisorHook = useSupervisor(collections || [], existingSettings || []);
+  } catch (error) {
+    console.error('❌ SUPERVISOR Error initializing supervisor hook:', error);
+    console.error('❌ Collections:', collections);
+    console.error('❌ Existing Settings:', existingSettings);
+    // Fallback to empty state
+    supervisorHook = {
+      uiState: {},
+      implementedState: {},
+      operationStatus: {},
+      updateCollectionState: () => {},
+      retryOperation: () => {},
+      runSupervisor: () => {}
+    };
+  }
+  
   const {
     uiState: collectionSettings,
     implementedState,
@@ -425,7 +443,7 @@ export default function Collections() {
     updateCollectionState,
     retryOperation,
     runSupervisor
-  } = useSupervisor(collections, existingSettings);
+  } = supervisorHook;
   
   // UI-only states (no business logic)
   const [availableTags, setAvailableTags] = useState<string[]>([]);
