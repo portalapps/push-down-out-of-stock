@@ -46,6 +46,10 @@ import { TitleBar } from "@shopify/app-bridge-react";
 import { authenticate } from "../shopify.server";
 import db from "../db.server";
 
+// SUPERVISOR PATTERN
+import { useSupervisor } from "../hooks/useSupervisor";
+import type { CollectionState } from "../utils/supervisor.client";
+
 // SERVER-SIDE DATA LOADER
 export const loader = async ({ request }: LoaderFunctionArgs) => {
   try {
@@ -290,8 +294,10 @@ export const action = async ({ request }: ActionFunctionArgs) => {
       const sortType = formData.get('sortType')?.toString();
       const exclusionTagsStr = formData.get('exclusionTags')?.toString();
       const exclusionTags = exclusionTagsStr ? JSON.parse(exclusionTagsStr) : [];
+      const operationTagStr = formData.get('operationTag')?.toString();
+      const operationTag = operationTagStr ? JSON.parse(operationTagStr) : null;
       
-      console.log('📥 updateSetting action received:', { collectionId, enabled, sortType, exclusionTags });
+      console.log('📥 SUPERVISOR updateSetting received:', { collectionId, enabled, sortType, exclusionTags, operationTag });
       
       // Upsert collection setting (create or update)
       await db.collectionSetting.upsert({
@@ -346,12 +352,47 @@ export const action = async ({ request }: ActionFunctionArgs) => {
         }
       }
       
-      console.log('✅ updateSetting completed successfully:', { collectionId, enabled, sortType });
-      return json({ success: true });
+      console.log('✅ SUPERVISOR updateSetting completed successfully:', { collectionId, enabled, sortType });
+      
+      // If enabled, trigger auto-sort and return after sort completion
+      if (enabled) {
+        console.log('🎯 SUPERVISOR triggering auto-sort after settings save:', collectionId);
+        
+        // Import sorting service
+        const { fetchCollectionProducts, sortProductsWithInventory, reorderCollectionProducts, SORT_TYPE_MAPPING } = await import('../services/collection-sorting.server');
+        
+        // Perform sort operation
+        const collectionData = await fetchCollectionProducts(admin, collectionId, sortType as keyof typeof SORT_TYPE_MAPPING);
+        const exclusionTagList = exclusionTags.map((tag: string) => tag.toLowerCase());
+        const { inStock, outOfStock } = sortProductsWithInventory(collectionData.products, exclusionTagList);
+        const sortedProductIds = [...inStock.map(p => p.id), ...outOfStock.map(p => p.id)];
+        const reorderResult = await reorderCollectionProducts(admin, collectionId, sortedProductIds, sortType);
+        
+        if (!reorderResult.success) {
+          console.error('❌ SUPERVISOR auto-sort failed:', reorderResult.error);
+          return json({ 
+            success: false, 
+            error: `Settings saved but sort failed: ${reorderResult.error}`,
+            operationTag 
+          });
+        }
+        
+        console.log('✅ SUPERVISOR auto-sort completed successfully:', collectionId);
+      }
+      
+      return json({ 
+        success: true, 
+        operationTag,
+        message: enabled ? 'Settings saved and collection sorted' : 'Settings saved'
+      });
     } catch (error) {
-      console.error('❌ Error saving collection setting:', error);
+      console.error('❌ SUPERVISOR Error saving collection setting:', error);
       console.error('❌ Error details:', error instanceof Error ? error.message : String(error));
-      return json({ success: false, error: `Failed to save setting: ${error instanceof Error ? error.message : String(error)}` });
+      return json({ 
+        success: false, 
+        error: `Failed to save setting: ${error instanceof Error ? error.message : String(error)}`,
+        operationTag 
+      });
     }
   }
   
@@ -359,341 +400,52 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 };
 
 export default function Collections() {
-  console.log('🏗️ Collections component rendering - STEP 1');
+  console.log('🏗️ SUPERVISOR Collections component rendering - STEP 1');
   const { collections, productTags, error, existingSettings, existingTags } = useLoaderData<typeof loader>();
-  console.log('🏗️ Collections component rendering - STEP 2', { collectionsLength: collections?.length });
-  const [isSaving, setIsSaving] = useState(false);
-  const fetcher = useFetcher();
+  console.log('🏗️ SUPERVISOR Collections component rendering - STEP 2', { collectionsLength: collections?.length });
   
-  // STATE MANAGEMENT (moved to top to fix hoisting issues)
-  const [collectionSettings, setCollectionSettings] = useState<Record<string, {
-    enabled: boolean;
-    sortType: string;
-    exclusionTags: string[];
-  }>>({});
+  // SUPERVISOR PATTERN - replaces all complex state management
+  const {
+    uiState: collectionSettings,
+    implementedState,
+    operationStatus,
+    updateCollectionState,
+    retryOperation,
+    runSupervisor
+  } = useSupervisor(collections, existingSettings);
+  
+  // UI-only states (no business logic)
   const [availableTags, setAvailableTags] = useState<string[]>([]);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [selectedTab, setSelectedTab] = useState(0);
   const [queryValue, setQueryValue] = useState('');
   const [sortValue, setSortValue] = useState('bestsellers');
   
-  // Processing state for collection sorting - using same robust tracking as operations
-  const [processStatus, setProcessStatus] = useState<Record<string, 'idle' | 'processing' | 'ready' | 'error'>>({});
+  // SUPERVISOR handles all timeout and state cleanup automatically
   
-  // Track latest UI status per collection (same pattern as pendingOperationsRef)
-  const pendingUIStatusRef = React.useRef<Map<string, {status: 'processing' | 'ready' | 'error', timestamp: number}>>(new Map());
-  
-  // Add timeout cleanup for stuck processing states (using robust UI status tracking)
-  React.useEffect(() => {
-    const interval = setInterval(() => {
-      setProcessStatus(prev => {
-        const updated = { ...prev };
-        let hasChanges = false;
-        const now = Date.now();
-        
-        // Clear any processing states that have been active for more than 10 seconds
-        Object.entries(updated).forEach(([id, status]) => {
-          if (status === 'processing') {
-            // Check both pending operations and UI status
-            const hasPendingOperation = pendingOperationsRef.current?.has(id);
-            const pendingUIStatus = pendingUIStatusRef.current.get(id);
-            const uiStatusAge = pendingUIStatus ? now - pendingUIStatus.timestamp : 0;
-            
-            // Clear if no pending operation and UI status is old (> 10 seconds)
-            if (!hasPendingOperation && uiStatusAge > 10000) {
-              console.log('⏰ Timeout: Clearing stuck processing state for:', id);
-              delete updated[id];
-              pendingUIStatusRef.current.delete(id);
-              hasChanges = true;
-            }
-          }
-        });
-        
-        return hasChanges ? updated : prev;
-      });
-    }, 5000); // Check every 5 seconds
-    
-    return () => clearInterval(interval);
-  }, []);
-  
-  // Add global debugging
-  React.useEffect(() => {
-    console.log('🔧 Setting up global event debugging...');
-    
-    // Override window.fetch to catch any direct API calls
-    const originalFetch = window.fetch;
-    window.fetch = function(...args) {
-      const url = args[0];
-      if (typeof url === 'string' && url.includes('collections')) {
-        console.log('🌍 WINDOW.FETCH called to collections endpoint:', args);
-        console.trace('Fetch called from:');
-      }
-      return originalFetch.apply(this, args);
-    };
-    
-    // Add document-level click listener
-    const clickHandler = (e) => {
-      console.log('📱 DOCUMENT CLICK detected:', {
-        target: e.target,
-        tagName: e.target?.tagName,
-        textContent: e.target?.textContent?.substring(0, 50),
-        className: e.target?.className
-      });
-    };
-    
-    document.addEventListener('click', clickHandler);
-    
-    return () => {
-      window.fetch = originalFetch;
-      document.removeEventListener('click', clickHandler);
-    };
-  }, []);
-  
-  console.log('🏗️ Component state:', { 
-    collectionsCount: collections?.length, 
-    fetcherState: fetcher.state,
-    fetcherData: fetcher.data,
-    processStatusKeys: Object.keys(processStatus),
-    processStatus: processStatus
+  console.log('🏗️ SUPERVISOR Component state:', { 
+    collectionsCount: collections?.length,
+    uiStateKeys: Object.keys(collectionSettings),
+    implementedStateKeys: Object.keys(implementedState),
+    operationStatusKeys: Object.keys(operationStatus)
   });
   
-  // Store latest operation per collection + order of requests
-  const pendingOperationsRef = React.useRef<Map<string, {formData: FormData, timestamp: number}>>(new Map());
-  const requestOrderRef = React.useRef<string[]>([]); // Track order for response matching
-  
-  // Store pending auto-sorts per collection (replaces single global pendingAutoSort)
-  const pendingAutoSortsRef = React.useRef<Map<string, {collectionId: string, sortType: string}>>(new Map());
-  
-  // Debug fetcher state changes
+  // SUPERVISOR handles all fetcher response processing automatically
+  // Toast messages for user feedback
   React.useEffect(() => {
-    console.log('🌐 Fetcher state changed:', { 
-      state: fetcher.state, 
-      data: fetcher.data,
-      formData: fetcher.formData ? Object.fromEntries(fetcher.formData) : null
+    Object.entries(operationStatus).forEach(([collectionId, status]) => {
+      if (status.status === 'ready') {
+        const isEnabled = collectionSettings[collectionId]?.enabled;
+        if (isEnabled) {
+          setToastMessage(`Collection ${collectionId} sorted and ready!`);
+        } else {
+          setToastMessage(`Collection ${collectionId} settings saved!`);
+        }
+      } else if (status.status === 'error') {
+        setToastMessage(`Operation failed for collection ${collectionId}: ${status.lastError || 'Unknown error'}`);
+      }
     });
-    
-    // Store latest formData per collection + track request order
-    if (fetcher.state === 'submitting' && fetcher.formData) {
-      const collectionId = fetcher.formData.get('collectionId')?.toString();
-      
-      if (collectionId && pendingOperationsRef.current && requestOrderRef.current) {
-        try {
-          const timestamp = Date.now();
-          // Store latest operation for this collection (overwrites previous)
-          pendingOperationsRef.current.set(collectionId, { 
-            formData: fetcher.formData, 
-            timestamp 
-          });
-          
-          // Track request order for response matching
-          requestOrderRef.current.push(collectionId);
-          
-          console.log('📝 Storing LATEST formData for collection:', collectionId, Object.fromEntries(fetcher.formData));
-          console.log('📋 Pending collections:', Array.from(pendingOperationsRef.current.keys()));
-          console.log('📋 Request order:', requestOrderRef.current);
-        } catch (error) {
-          console.error('❌ Error storing operation:', error);
-          // Reset on error
-          pendingOperationsRef.current = new Map([[collectionId, { formData: fetcher.formData, timestamp: Date.now() }]]);
-          requestOrderRef.current = [collectionId];
-        }
-      }
-    }
-    
-    // Log what triggered this fetcher call
-    if (fetcher.formData) {
-      console.log('🕵️ Fetcher was triggered with formData:', Object.fromEntries(fetcher.formData));
-      console.log('🕵️ Current stack at fetcher state change:');
-      console.trace('Fetcher state change triggered from:');
-    }
-    
-    if (fetcher.state === 'idle' && fetcher.data) {
-      console.log('✅ Fetcher completed with data:', fetcher.data);
-      
-      // Match response to the most recent pending request
-      if (pendingOperationsRef.current && pendingOperationsRef.current.size > 0 && requestOrderRef.current && requestOrderRef.current.length > 0) {
-          console.log('🔍 Processing pending collections:', Array.from(pendingOperationsRef.current.keys()));
-          console.log('🔍 Request order queue:', requestOrderRef.current);
-          
-          // Find the first collection in the queue that actually has pending data
-          let operationData: {formData: FormData, timestamp: number} | undefined;
-          let collectionId: string | undefined;
-          
-          // Remove requests from queue until we find one with pending data
-          while (requestOrderRef.current.length > 0) {
-            const queuedCollectionId = requestOrderRef.current.shift()!;
-            const queuedOperationData = pendingOperationsRef.current.get(queuedCollectionId);
-            
-            if (queuedOperationData && queuedOperationData.formData) {
-              // Found a collection with pending data
-              operationData = queuedOperationData;
-              collectionId = queuedCollectionId;
-              break;
-            } else {
-              console.log('⚠️ Skipping queue item with no pending data:', queuedCollectionId);
-            }
-          }
-          
-          if (!operationData || !collectionId) {
-            console.warn('⚠️ No collections with pending operation data found in queue');
-            return;
-          }
-          
-          // Use the LATEST formData for this collection (not the old request)
-          const { formData } = operationData;
-          const action = formData.get('action')?.toString();
-          
-          // Remove this collection from pending (latest operation processed)
-          pendingOperationsRef.current.delete(collectionId);
-          
-          console.log('🎯 Processing OLDEST operation for collection:', collectionId, 'action:', action);
-      
-        if (action === 'updateSetting' && collectionId) {
-        if (fetcher.data?.success) {
-          console.log('✅ Settings save SUCCESS for:', collectionId);
-          
-          // Use robust UI status tracking - only update if this is the latest operation
-          const pendingUIStatus = pendingUIStatusRef.current.get(collectionId);
-          if (pendingUIStatus && pendingUIStatus.status === 'processing') {
-            console.log('🟢 Setting status to READY for latest operation:', collectionId);
-            pendingUIStatusRef.current.set(collectionId, { status: 'ready', timestamp: Date.now() });
-            setProcessStatus(prev => ({ ...prev, [collectionId]: 'ready' }));
-          } else {
-            console.log('⚠️ Skipping UI update - not the latest operation for:', collectionId);
-          }
-          
-          // Clear the ready status after 3 seconds unless another operation starts
-          setTimeout(() => {
-            setProcessStatus(prev => {
-              // Only clear if still showing 'ready' (not overwritten by new operation)
-              const currentUIStatus = pendingUIStatusRef.current.get(collectionId);
-              if (prev[collectionId] === 'ready' && currentUIStatus?.status === 'ready') {
-                const newStatus = { ...prev };
-                delete newStatus[collectionId];
-                pendingUIStatusRef.current.delete(collectionId);
-                return newStatus;
-              }
-              return prev;
-            });
-          }, 3000);
-          
-          // Check if we need to trigger auto-sort for this specific collection after save
-          const pendingSort = pendingAutoSortsRef.current.get(collectionId);
-          if (pendingSort) {
-            const { sortType } = pendingSort;
-            console.log('🎯 PENDING AUTO-SORT detected for collection:', collectionId, sortType);
-            
-            // Only sort if the collection is actually enabled
-            if (collectionSettings[collectionId]?.enabled) {
-              console.log('🎯 Now triggering auto-sort after save completion:', collectionId, sortType);
-              
-              // Remove this collection's pending auto-sort
-              pendingAutoSortsRef.current.delete(collectionId);
-              
-              // Set back to processing for the sort operation (using robust UI tracking)
-              const timestamp = Date.now();
-              pendingUIStatusRef.current.set(collectionId, { status: 'processing', timestamp });
-              setProcessStatus(prev => ({ ...prev, [collectionId]: 'processing' }));
-              const sortFormData = new FormData();
-              sortFormData.append('action', 'sortCollection');
-              sortFormData.append('collectionId', collectionId);
-              fetcher.submit(sortFormData, { method: 'POST' });
-            } else {
-              console.log('❌ Skipping auto-sort because collection is disabled');
-              pendingAutoSortsRef.current.delete(collectionId);
-            }
-          } else {
-            console.log('🔍 No pending auto-sort found for collection:', collectionId);
-            console.log('🔍 Current pending auto-sorts:', Array.from(pendingAutoSortsRef.current.keys()));
-          }
-        } else {
-          console.error('❌ Save failed:', fetcher.data?.error || 'No error message');
-          
-          // Use robust UI status tracking for errors too
-          const pendingUIStatus = pendingUIStatusRef.current.get(collectionId);
-          if (pendingUIStatus && pendingUIStatus.status === 'processing') {
-            console.log('🔴 Setting status to ERROR for latest operation:', collectionId);
-            pendingUIStatusRef.current.set(collectionId, { status: 'error', timestamp: Date.now() });
-            setProcessStatus(prev => ({ ...prev, [collectionId]: 'error' }));
-            setToastMessage(`Failed to save settings: ${fetcher.data?.error || 'Unknown error'}`);
-          } else {
-            console.log('⚠️ Skipping error UI update - not the latest operation for:', collectionId);
-          }
-        }
-      } else if (action === 'sortCollection' && collectionId) {
-        if (fetcher.data?.success) {
-          console.log('✅ Sort SUCCESS for:', collectionId);
-          
-          // Use robust UI status tracking for sort success
-          const pendingUIStatus = pendingUIStatusRef.current.get(collectionId);
-          if (pendingUIStatus && pendingUIStatus.status === 'processing') {
-            console.log('🟢 Setting status to READY after sort for latest operation:', collectionId);
-            pendingUIStatusRef.current.set(collectionId, { status: 'ready', timestamp: Date.now() });
-            setProcessStatus(prev => ({ ...prev, [collectionId]: 'ready' }));
-          } else {
-            console.log('⚠️ Skipping sort success UI update - not the latest operation for:', collectionId);
-          }
-          
-          // Clear the ready status after 3 seconds unless another operation starts
-          setTimeout(() => {
-            setProcessStatus(prev => {
-              // Only clear if still showing 'ready' (not overwritten by new operation)
-              const currentUIStatus = pendingUIStatusRef.current.get(collectionId);
-              if (prev[collectionId] === 'ready' && currentUIStatus?.status === 'ready') {
-                const newStatus = { ...prev };
-                delete newStatus[collectionId];
-                pendingUIStatusRef.current.delete(collectionId);
-                return newStatus;
-              }
-              return prev;
-            });
-          }, 3000);
-          
-          const stats = fetcher.data.stats;
-          setToastMessage(`Collection sorted! ${stats.inStockCount} in-stock, ${stats.outOfStockCount} moved to bottom`);
-        } else {
-          console.log('❌ Sort FAILED for:', collectionId);
-          
-          // Use robust UI status tracking for sort errors
-          const pendingUIStatus = pendingUIStatusRef.current.get(collectionId);
-          if (pendingUIStatus && pendingUIStatus.status === 'processing') {
-            console.log('🔴 Setting status to ERROR after sort for latest operation:', collectionId);
-            pendingUIStatusRef.current.set(collectionId, { status: 'error', timestamp: Date.now() });
-            setProcessStatus(prev => ({ ...prev, [collectionId]: 'error' }));
-            setToastMessage(`Sort failed: ${fetcher.data.error}`);
-          } else {
-            console.log('⚠️ Skipping sort error UI update - not the latest operation for:', collectionId);
-          }
-        }
-        
-        // Log remaining pending operations
-        console.log('🧹 Remaining pending collections:', Array.from(pendingOperationsRef.current?.keys() || []));
-        console.log('🧹 Remaining request order:', requestOrderRef.current);
-        
-        // Clean up any collections that might be stuck in processing state
-        // This handles the case where rapid collection changes leave some collections spinning
-        if (pendingOperationsRef.current && pendingOperationsRef.current.size === 0) {
-          console.log('🧹 No more pending operations - clearing any stuck processing states');
-          setProcessStatus(prev => {
-            const updated = { ...prev };
-            let hasChanges = false;
-            
-            // Reset any collections still in processing state when queue is empty
-            Object.entries(updated).forEach(([id, status]) => {
-              if (status === 'processing') {
-                console.log('🧹 Clearing stuck processing state for:', id);
-                delete updated[id];
-                hasChanges = true;
-              }
-            });
-            
-            return hasChanges ? updated : prev;
-          });
-        }
-      }
-    }
-  }}, [fetcher.state, fetcher.data, fetcher.formData, collectionSettings]);
-
+  }, [operationStatus, collectionSettings]);
   
   // Early return for debugging (moved after state declarations)
   if (!collections || collections.length === 0) {
@@ -718,53 +470,15 @@ export default function Collections() {
   // IndexFilters mode
   const { mode, setMode } = useSetIndexFiltersMode();
   
-  // Track if settings have been initialized to prevent re-loading
-  const settingsInitialized = React.useRef(false);
-
-  // Initialize available tags and existing settings from loader data
+  // Initialize available tags from loader data
   React.useEffect(() => {
-    console.log('🔄 useEffect running:', { 
-      productTags: productTags?.length, 
-      existingSettings: existingSettings?.length, 
-      existingTags: existingTags?.length, 
-      settingsInitialized: settingsInitialized.current,
-      currentCollectionSettingsKeys: Object.keys(collectionSettings)
-    });
-    
     if (productTags && Array.isArray(productTags)) {
-      console.log('📝 Setting available tags:', productTags.slice(0, 5), '...');
+      console.log('📝 SUPERVISOR Setting available tags:', productTags.slice(0, 5), '...');
       setAvailableTags(productTags);
     }
-    
-    // Load existing settings into state ONLY once on initial mount
-    if (existingSettings && Array.isArray(existingSettings) && !settingsInitialized.current) {
-      console.log('💾 Loading settings for first time...');
-      const settingsMap: Record<string, { enabled: boolean; sortType: string; exclusionTags: string[] }> = {};
-      
-      existingSettings.forEach((setting: any) => {
-        settingsMap[setting.collectionId] = {
-          enabled: setting.enabled,
-          sortType: setting.sortType,
-          exclusionTags: [], // Will be populated from exclusionTags data
-        };
-      });
-      
-      // Group exclusion tags by collection ID
-      if (existingTags && Array.isArray(existingTags)) {
-        console.log('🏷️ Loading exclusion tags:', existingTags);
-        existingTags.forEach((tagRecord: any) => {
-          const collectionId = tagRecord.collectionId;
-          if (settingsMap[collectionId]) {
-            settingsMap[collectionId].exclusionTags.push(tagRecord.tag);
-          }
-        });
-      }
-      
-      console.log('✅ Loaded settings:', settingsMap);
-      setCollectionSettings(settingsMap);
-      settingsInitialized.current = true;
-    }
-  }, [productTags, existingSettings, existingTags]);
+  }, [productTags]);
+  
+  // SUPERVISOR handles all settings initialization automatically
 
 
   // FILTER AND SORT COLLECTIONS
@@ -835,236 +549,64 @@ export default function Collections() {
     useIndexResourceState(sortedCollections, { resourceIDResolver });
 
 
-  // AUTO-SAVE FUNCTION using useFetcher (with robust UI status tracking)
-  const autoSave = useCallback((collectionId: string, updates: Partial<{
-    enabled: boolean;
-    sortType: string;
-    exclusionTags: string[];
-  }>) => {
-    console.log('💾 autoSave called with:', { collectionId, updates });
-    
-    // Use robust UI status tracking (same pattern as operations)
-    const timestamp = Date.now();
-    pendingUIStatusRef.current.set(collectionId, { status: 'processing', timestamp });
-    console.log('🔵 Setting status to PROCESSING for:', collectionId);
-    setProcessStatus(prev => ({ ...prev, [collectionId]: 'processing' }));
-    
-    const currentSettings = collectionSettings[collectionId] || {
-      enabled: false,
-      sortType: 'bestsellers',
-      exclusionTags: [],
-    };
-    
-    const newSettings = { ...currentSettings, ...updates };
-    console.log('📤 Sending save request via fetcher:', newSettings);
-    
-    const formData = {
-      action: 'updateSetting',
-      collectionId,
-      enabled: newSettings.enabled.toString(),
-      sortType: newSettings.sortType,
-      exclusionTags: JSON.stringify(newSettings.exclusionTags),
-    };
-    
-    console.log('📋 FormData to submit:', formData);
-    
-    fetcher.submit(formData, { method: 'POST' });
-  }, [collectionSettings, fetcher, setProcessStatus]);
-
-  // EVENT HANDLERS
-  const handleStatusToggle = useCallback(async (collectionId: string) => {
+  // SUPERVISOR-BASED EVENT HANDLERS (Simple and Clean)
+  const handleStatusToggle = useCallback((collectionId: string) => {
     const currentEnabled = collectionSettings[collectionId]?.enabled;
     const newEnabled = !currentEnabled;
     
-    console.log('🔄 handleStatusToggle called:', { 
-      collectionId, 
-      currentEnabled, 
-      newEnabled,
-      currentSettings: collectionSettings[collectionId] 
-    });
+    console.log('🔄 SUPERVISOR handleStatusToggle:', { collectionId, currentEnabled, newEnabled });
     
-    // Update local state immediately
-    setCollectionSettings(prev => ({
-      ...prev,
-      [collectionId]: {
-        ...prev[collectionId],
-        enabled: newEnabled,
-        sortType: prev[collectionId]?.sortType || 'bestsellers',
-        exclusionTags: prev[collectionId]?.exclusionTags || [],
-      }
-    }));
-    
-    console.log('💾 About to call autoSave with enabled:', newEnabled);
-    
-    // If enabling collection, set up auto-sort after save completes
-    if (newEnabled) {
-      console.log('🎯 Setting up auto-sort after save completes:', collectionId);
-      const currentSortType = collectionSettings[collectionId]?.sortType || 'bestsellers asc';
-      pendingAutoSortsRef.current.set(collectionId, { collectionId, sortType: currentSortType });
-    }
-    
-    // Auto-save to database (sort will be triggered automatically after save completes)
-    autoSave(collectionId, { enabled: newEnabled });
-  }, [collectionSettings, autoSave, fetcher]);
+    // Update UI state - supervisor will handle the rest
+    updateCollectionState(collectionId, { enabled: newEnabled });
+  }, [collectionSettings, updateCollectionState]);
 
-  const handleSortTypeChange = useCallback(async (collectionId: string, sortType: string) => {
-    console.log('🔄 handleSortTypeChange called:', { collectionId, sortType, currentSettings: collectionSettings[collectionId] });
-    
-    // CRITICAL: Don't do anything if collection is disabled
+  const handleSortTypeChange = useCallback((collectionId: string, sortType: string) => {
+    // Skip if collection is disabled
     if (!collectionSettings[collectionId]?.enabled) {
-      console.log('❌ BLOCKING handleSortTypeChange - collection is disabled:', collectionId);
+      console.log('❌ SUPERVISOR - collection disabled, ignoring sort change:', collectionId);
       return;
     }
     
-    // Update local state immediately
-    setCollectionSettings(prev => ({
-      ...prev,
-      [collectionId]: {
-        ...prev[collectionId],
-        enabled: prev[collectionId]?.enabled || false,
-        sortType,
-        exclusionTags: prev[collectionId]?.exclusionTags || [],
-      }
-    }));
+    console.log('🔄 SUPERVISOR handleSortTypeChange:', { collectionId, sortType });
     
-    // Auto-save to database
-    console.log('💾 Auto-saving sort type:', sortType);
-    autoSave(collectionId, { sortType });
-    
-    // Mark that we need to auto-sort this collection after save completes
-    const isEnabled = collectionSettings[collectionId]?.enabled;
-    console.log('🎯 Collection enabled status for auto-sort:', isEnabled);
-    if (isEnabled) {
-      console.log('🎯 Setting pendingAutoSort for collection:', collectionId, sortType);
-      // Set a flag to trigger sorting after the save completes
-      pendingAutoSortsRef.current.set(collectionId, { collectionId, sortType });
-      console.log('🎯 Updated pending auto-sorts:', Array.from(pendingAutoSortsRef.current.keys()));
-    } else {
-      console.log('❌ NOT setting pendingAutoSort - collection is disabled');
-    }
-  }, [collectionSettings, autoSave, fetcher]);
+    // Update UI state - supervisor will handle the rest
+    updateCollectionState(collectionId, { sortType });
+  }, [collectionSettings, updateCollectionState]);
 
-  const handleBulkEnable = useCallback(async () => {
-    const updates: Record<string, any> = {};
+  const handleBulkEnable = useCallback(() => {
+    console.log('🔄 SUPERVISOR handleBulkEnable:', selectedResources);
     selectedResources.forEach(id => {
-      updates[id] = {
-        enabled: true,
-        sortType: collectionSettings[id]?.sortType || 'bestsellers',
-        exclusionTags: collectionSettings[id]?.exclusionTags || [],
-      };
+      updateCollectionState(id, { enabled: true });
     });
-    setCollectionSettings(prev => ({ ...prev, ...updates }));
-    
-    // Auto-save all selected collections
-    const savePromises = selectedResources.map(id => 
-      autoSave(id, { enabled: true })
-    );
-    await Promise.all(savePromises);
-  }, [selectedResources, collectionSettings, autoSave]);
+  }, [selectedResources, updateCollectionState]);
 
-  const handleBulkDisable = useCallback(async () => {
-    const updates: Record<string, any> = {};
+  const handleBulkDisable = useCallback(() => {
+    console.log('🔄 SUPERVISOR handleBulkDisable:', selectedResources);
     selectedResources.forEach(id => {
-      updates[id] = {
-        enabled: false,
-        sortType: collectionSettings[id]?.sortType || 'bestsellers',
-        exclusionTags: collectionSettings[id]?.exclusionTags || [],
-      };
+      updateCollectionState(id, { enabled: false });
     });
-    setCollectionSettings(prev => ({ ...prev, ...updates }));
-    
-    // Auto-save all selected collections
-    const savePromises = selectedResources.map(id => 
-      autoSave(id, { enabled: false })
-    );
-    await Promise.all(savePromises);
-  }, [selectedResources, collectionSettings, autoSave]);
+  }, [selectedResources, updateCollectionState]);
 
-  // COLLECTION SORTING
-  const handleSortCollection = useCallback(async (collectionId: string) => {
-    console.log('🎯 Starting sort for collection:', collectionId);
+  // TAG MANAGEMENT (Supervisor-based)
+  const handleTagAdd = useCallback((collectionId: string, tag: string) => {
+    const currentTags = collectionSettings[collectionId]?.exclusionTags || [];
+    const newTags = [...currentTags, tag];
     
-    // Use robust UI status tracking for manual sorts
-    const timestamp = Date.now();
-    pendingUIStatusRef.current.set(collectionId, { status: 'processing', timestamp });
-    setProcessStatus(prev => ({ ...prev, [collectionId]: 'processing' }));
+    console.log('🔄 SUPERVISOR handleTagAdd:', { collectionId, tag, newTags });
     
-    try {
-      const response = await fetcher.submit(
-        {
-          action: 'sortCollection',
-          collectionId,
-        },
-        { method: 'POST' }
-      );
-      
-      // Note: fetcher.submit doesn't return the response directly
-      // The response will be handled by the fetcher state change useEffect
-      
-    } catch (error) {
-      console.error('❌ Error triggering sort:', error);
-      setProcessStatus(prev => ({ ...prev, [collectionId]: 'error' }));
-      setToastMessage('Failed to sort collection');
-    }
-  }, [fetcher]);
+    // Update UI state - supervisor will handle the rest
+    updateCollectionState(collectionId, { exclusionTags: newTags });
+  }, [collectionSettings, updateCollectionState]);
 
-
-  // TAG MANAGEMENT
-  const handleTagAdd = useCallback(async (collectionId: string, tag: string) => {
-    console.log('handleTagAdd called:', { collectionId, tag, currentTags: collectionSettings[collectionId]?.exclusionTags });
-    const newTags = [...(collectionSettings[collectionId]?.exclusionTags || []), tag];
-    console.log('New tags array:', newTags);
+  const handleTagRemove = useCallback((collectionId: string, tag: string) => {
+    const currentTags = collectionSettings[collectionId]?.exclusionTags || [];
+    const newTags = currentTags.filter(t => t !== tag);
     
-    // Update local state immediately
-    setCollectionSettings(prev => {
-      const updated = {
-        ...prev,
-        [collectionId]: {
-          ...prev[collectionId],
-          enabled: prev[collectionId]?.enabled || false,
-          sortType: prev[collectionId]?.sortType || 'bestsellers',
-          exclusionTags: newTags,
-        }
-      };
-      console.log('Updated collectionSettings:', updated);
-      return updated;
-    });
+    console.log('🔄 SUPERVISOR handleTagRemove:', { collectionId, tag, newTags });
     
-    // If collection is enabled, set up auto-sort after save completes
-    if (collectionSettings[collectionId]?.enabled) {
-      console.log('🎯 Setting up auto-sort after tag add save completes:', collectionId, tag);
-      const currentSortType = collectionSettings[collectionId]?.sortType || 'bestsellers asc';
-      pendingAutoSortsRef.current.set(collectionId, { collectionId, sortType: currentSortType });
-    }
-    
-    // Auto-save to database (sort will be triggered automatically after save completes)
-    autoSave(collectionId, { exclusionTags: newTags });
-  }, [collectionSettings, autoSave, fetcher]);
-
-  const handleTagRemove = useCallback(async (collectionId: string, tag: string) => {
-    const newTags = (collectionSettings[collectionId]?.exclusionTags || []).filter(t => t !== tag);
-    
-    // Update local state immediately
-    setCollectionSettings(prev => ({
-      ...prev,
-      [collectionId]: {
-        ...prev[collectionId],
-        enabled: prev[collectionId]?.enabled || false,
-        sortType: prev[collectionId]?.sortType || 'bestsellers',
-        exclusionTags: newTags,
-      }
-    }));
-    
-    // If collection is enabled, set up auto-sort after save completes
-    if (collectionSettings[collectionId]?.enabled) {
-      console.log('🎯 Setting up auto-sort after tag remove save completes:', collectionId, tag);
-      const currentSortType = collectionSettings[collectionId]?.sortType || 'bestsellers asc';
-      pendingAutoSortsRef.current.set(collectionId, { collectionId, sortType: currentSortType });
-    }
-    
-    // Auto-save to database (sort will be triggered automatically after save completes)
-    autoSave(collectionId, { exclusionTags: newTags });
-  }, [collectionSettings, autoSave, fetcher]);
+    // Update UI state - supervisor will handle the rest
+    updateCollectionState(collectionId, { exclusionTags: newTags });
+  }, [collectionSettings, updateCollectionState]);
 
 
 
@@ -1261,14 +803,19 @@ export default function Collections() {
 
         <IndexTable.Cell>
           <div style={{ textAlign: 'center' }}>
-            {processStatus[id] === 'processing' && (
+            {operationStatus[id]?.status === 'processing' && (
               <Spinner size="small" />
             )}
-            {processStatus[id] === 'ready' && (
+            {operationStatus[id]?.status === 'ready' && (
               <Icon source={CheckIcon} tone="success" />
             )}
-            {processStatus[id] === 'error' && (
-              <Icon source={AlertTriangleIcon} tone="critical" />
+            {(operationStatus[id]?.status === 'error' || operationStatus[id]?.status === 'retry') && (
+              <button 
+                onClick={() => retryOperation(id)}
+                style={{ background: 'none', border: 'none', cursor: 'pointer' }}
+              >
+                <Icon source={AlertTriangleIcon} tone="critical" />
+              </button>
             )}
           </div>
         </IndexTable.Cell>
