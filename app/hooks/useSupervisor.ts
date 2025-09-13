@@ -15,9 +15,13 @@ import {
   initializeOperationStatus,
   updateOperationStatus,
   isOperationTimedOut,
-  shouldCleanupStatus,
-  getFetcherKey
+  shouldCleanupStatus
 } from '../utils/operation-manager.client';
+
+type Operation = {
+  collectionId: string;
+  targetState: CollectionState;
+};
 
 /**
  * Main supervisor hook - manages all state reconciliation
@@ -28,22 +32,12 @@ export function useSupervisor(initialCollections: any[], existingSettings: any[]
   const [implementedState, setImplementedState] = useState<ImplementedState>({});
   const [operationStatus, setOperationStatus] = useState<OperationStatusMap>({});
   
-  // Dynamic fetcher management
-  const fetchersRef = useRef<Map<string, any>>(new Map());
+  // Single fetcher for serialized operations
   const mainFetcher = useFetcher();
   
-  // Pending operations tracking
-  const pendingOperationsRef = useRef<Map<string, any>>(new Map());
-  
-  // Get or create fetcher for collection
-  const getFetcher = useCallback((collectionId: string) => {
-    const key = getFetcherKey(collectionId);
-    if (!fetchersRef.current.has(key)) {
-      // For now, use main fetcher - we'll optimize with multiple fetchers later
-      fetchersRef.current.set(key, mainFetcher);
-    }
-    return fetchersRef.current.get(key);
-  }, [mainFetcher]);
+  // Operation queue for serialization
+  const operationQueueRef = useRef<Operation[]>([]);
+  const isProcessingRef = useRef(false);
 
   // Initialize states from existing data
   useEffect(() => {
@@ -51,7 +45,6 @@ export function useSupervisor(initialCollections: any[], existingSettings: any[]
       const initialUIState: UIState = {};
       const initialImplementedState: ImplementedState = {};
       
-      // Build state from existing settings
       if (Array.isArray(existingSettings)) {
         existingSettings.forEach((setting: any) => {
           if (setting && setting.collectionId) {
@@ -62,7 +55,6 @@ export function useSupervisor(initialCollections: any[], existingSettings: any[]
         });
       }
       
-      // Add collections without settings
       if (Array.isArray(initialCollections)) {
         initialCollections.forEach((collection: any) => {
           if (collection && collection.id && !initialUIState[collection.id]) {
@@ -73,63 +65,65 @@ export function useSupervisor(initialCollections: any[], existingSettings: any[]
         });
       }
       
-      console.log('🏗️ SUPERVISOR Initializing states:', {
-        uiStateKeys: Object.keys(initialUIState),
-        implementedStateKeys: Object.keys(initialImplementedState)
-      });
-      
+      console.log('🏗️ SUPERVISOR Initializing states');
       setUIState(initialUIState);
       setImplementedState(initialImplementedState);
     } catch (error) {
       console.error('❌ SUPERVISOR Error initializing states:', error);
-      console.error('❌ Initial Collections:', initialCollections);
-      console.error('❌ Existing Settings:', existingSettings);
     }
   }, [initialCollections, existingSettings]);
 
-  // Core supervisor function
+  // Function to process the next operation in the queue
+  const processQueue = useCallback(() => {
+    if (isProcessingRef.current || operationQueueRef.current.length === 0) {
+      return;
+    }
+
+    isProcessingRef.current = true;
+    const operation = operationQueueRef.current.shift();
+    
+    if (!operation) {
+      isProcessingRef.current = false;
+      return;
+    }
+
+    const { collectionId, targetState } = operation;
+    console.log('🎯 Supervisor triggering operation from queue:', collectionId, targetState);
+
+    const { formData } = createTaggedFormData(collectionId, targetState);
+
+    setOperationStatus(prev => ({
+      ...prev,
+      [collectionId]: initializeOperationStatus(collectionId)
+    }));
+
+    mainFetcher.submit(formData, { method: 'POST' });
+  }, [mainFetcher]);
+
+  // Core supervisor function to detect differences and queue operations
   const runSupervisor = useCallback(() => {
     try {
       const differences = detectStateDifferences(uiState, implementedState);
       
-      console.log('🔍 SUPERVISOR check:', {
-        differences: differences.length,
-        details: differences.map(d => `${d.collectionId}: ${d.operationType}`)
-      });
-    
-    // Trigger operations for each difference
-    differences.forEach(({ collectionId, targetState }) => {
-      // Skip if already processing
-      if (operationStatus[collectionId]?.status === 'processing') {
-        console.log('⏭️ Skipping - already processing:', collectionId);
-        return;
+      if (differences.length > 0) {
+        console.log('🔍 SUPERVISOR check: Found differences', differences.map(d => d.collectionId));
       }
-      
-      console.log('🎯 Supervisor triggering operation:', collectionId, targetState);
-      
-      // Create tagged operation
-      const { formData, tag } = createTaggedFormData(collectionId, targetState);
-      
-      // Store pending operation
-      pendingOperationsRef.current.set(collectionId, { tag, targetState });
-      
-      // Set processing status
-      setOperationStatus(prev => ({
-        ...prev,
-        [collectionId]: initializeOperationStatus(collectionId)
-      }));
-      
-      // Submit operation
-      const fetcher = getFetcher(collectionId);
-      fetcher.submit(formData, { method: 'POST' });
-    });
+
+      differences.forEach(({ collectionId, targetState }) => {
+        const isAlreadyProcessing = operationStatus[collectionId]?.status === 'processing';
+        const isAlreadyInQueue = operationQueueRef.current.some(op => op.collectionId === collectionId);
+
+        if (!isAlreadyProcessing && !isAlreadyInQueue) {
+          console.log('➕ Adding to queue:', collectionId);
+          operationQueueRef.current.push({ collectionId, targetState });
+        }
+      });
+
+      processQueue();
     } catch (error) {
       console.error('❌ SUPERVISOR Error in runSupervisor:', error);
-      console.error('❌ UI State:', uiState);
-      console.error('❌ Implemented State:', implementedState);
-      console.error('❌ Operation Status:', operationStatus);
     }
-  }, [uiState, implementedState, operationStatus, getFetcher]);
+  }, [uiState, implementedState, operationStatus, processQueue]);
 
   // Handle fetcher responses
   useEffect(() => {
@@ -137,110 +131,84 @@ export function useSupervisor(initialCollections: any[], existingSettings: any[]
       if (mainFetcher.state === 'idle' && mainFetcher.data) {
         console.log('📨 SUPERVISOR Fetcher response received:', mainFetcher.data);
         
-        // Extract operation tag from response
         const responseTag = mainFetcher.data.operationTag;
-      
-      if (responseTag && isTagValid(responseTag, uiState)) {
+        
+        if (!responseTag || !responseTag.collectionId) {
+          console.warn('⚠️ SUPERVISOR Response missing tag, cannot process.');
+          isProcessingRef.current = false;
+          processQueue();
+          return;
+        }
+
         const { collectionId } = responseTag;
-        
-        console.log('✅ SUPERVISOR Valid response tag for:', collectionId, {
-          responseState: responseTag.targetState,
-          currentUIState: uiState[collectionId]
-        });
-        
-        // Update implemented state to match UI state
-        setImplementedState(prev => ({
-          ...prev,
-          [collectionId]: { ...uiState[collectionId] }
-        }));
-        
-        // Update operation status with server response data
-        const updatedStatus = updateOperationStatus(
-          prev[collectionId] || initializeOperationStatus(collectionId),
-          mainFetcher.data.success,
-          mainFetcher.data.error
-        );
-        
-        // Add server response data for toast messages
-        if (mainFetcher.data.success && mainFetcher.data.stats) {
-          updatedStatus.serverResponseData = mainFetcher.data.stats;
-        }
-        
-        setOperationStatus(prev => ({
-          ...prev,
-          [collectionId]: updatedStatus
-        }));
-        
-        // Clean up pending operation
-        pendingOperationsRef.current.delete(collectionId);
-      } else {
-        console.log('⚠️ SUPERVISOR Invalid or outdated response tag, ignoring:', {
-          responseTag,
-          hasTag: !!responseTag,
-          uiStateKeys: Object.keys(uiState),
-          tagValid: responseTag ? isTagValid(responseTag, uiState) : false
-        });
-        
-        // If we have a response tag but it's invalid, it means the operation completed
-        // but the UI state has changed since then. We should still clear any processing status
-        // to prevent stuck spinners
-        if (responseTag && responseTag.collectionId) {
-          const collectionId = responseTag.collectionId;
-          console.log('🧹 SUPERVISOR Clearing processing status for outdated response:', collectionId);
+
+        if (isTagValid(responseTag, uiState)) {
+          setImplementedState(prev => ({
+            ...prev,
+            [collectionId]: { ...uiState[collectionId] }
+          }));
           
-          setOperationStatus(prev => {
-            const currentStatus = prev[collectionId];
-            if (currentStatus && currentStatus.status === 'processing') {
-              // Clear the processing status - supervisor will detect the difference and retry if needed
-              const updated = { ...prev };
-              delete updated[collectionId];
-              return updated;
-            }
-            return prev;
-          });
+          const updatedStatus = updateOperationStatus(
+            operationStatus[collectionId] || initializeOperationStatus(collectionId),
+            mainFetcher.data.success,
+            mainFetcher.data.error
+          );
           
-          // Remove from pending operations so supervisor can detect difference and retry
-          pendingOperationsRef.current.delete(collectionId);
+          if (mainFetcher.data.success && mainFetcher.data.stats) {
+            updatedStatus.serverResponseData = mainFetcher.data.stats;
+          }
+          
+          setOperationStatus(prev => ({ ...prev, [collectionId]: updatedStatus }));
+        } else {
+          console.log('⚠️ SUPERVISOR Invalid or outdated response tag, ignoring:', { responseTag });
+          // Don't update implementedState, supervisor will re-queue if needed.
         }
+
+        // Operation finished, process the next one.
+        isProcessingRef.current = false;
+        processQueue();
       }
-    }
     } catch (error) {
       console.error('❌ SUPERVISOR Error in fetcher response handler:', error);
-      console.error('❌ Fetcher state:', mainFetcher.state);
-      console.error('❌ Fetcher data:', mainFetcher.data);
-      console.error('❌ UI State:', uiState);
+      isProcessingRef.current = false;
+      processQueue();
     }
-  }, [mainFetcher.state, mainFetcher.data, uiState]);
+  }, [mainFetcher.state, mainFetcher.data, uiState, operationStatus, processQueue]);
 
   // Timeout and cleanup management
   useEffect(() => {
     const interval = setInterval(() => {
-      setOperationStatus(prev => {
-        const updated = { ...prev };
-        let hasChanges = false;
-        
-        Object.entries(updated).forEach(([collectionId, status]) => {
-          // Handle timeouts
-          if (isOperationTimedOut(status)) {
-            console.log('⏰ Operation timeout:', collectionId);
-            updated[collectionId] = updateOperationStatus(status, false, 'Operation timed out');
-            pendingOperationsRef.current.delete(collectionId);
-            hasChanges = true;
+      let hasChanges = false;
+      const updated = { ...operationStatus };
+
+      Object.entries(updated).forEach(([collectionId, status]) => {
+        if (status.status === 'processing' && isOperationTimedOut(status)) {
+          console.log('⏰ Operation timeout:', collectionId);
+          updated[collectionId] = updateOperationStatus(status, false, 'Operation timed out');
+          hasChanges = true;
+          
+          // If the timed-out operation was the one being processed, unlock the queue
+          if (isProcessingRef.current) {
+             const isCurrentOp = operationQueueRef.current.length === 0; // Approximation
+             if(isCurrentOp) {
+                isProcessingRef.current = false;
+                processQueue();
+             }
           }
-          // Handle cleanup
-          else if (shouldCleanupStatus(status)) {
-            console.log('🧹 Cleaning up completed status:', collectionId);
-            delete updated[collectionId];
-            hasChanges = true;
-          }
-        });
-        
-        return hasChanges ? updated : prev;
+        } else if (shouldCleanupStatus(status)) {
+          console.log('🧹 Cleaning up completed status:', collectionId);
+          delete updated[collectionId];
+          hasChanges = true;
+        }
       });
-    }, 1000); // Check every second
+      
+      if (hasChanges) {
+        setOperationStatus(updated);
+      }
+    }, 1000);
     
     return () => clearInterval(interval);
-  }, []);
+  }, [operationStatus, processQueue]);
 
   // Auto-run supervisor when UI state changes
   useEffect(() => {
@@ -270,14 +238,18 @@ export function useSupervisor(initialCollections: any[], existingSettings: any[]
       });
     } catch (error) {
       console.error('❌ SUPERVISOR Error in updateCollectionState:', error);
-      console.error('❌ Collection ID:', collectionId);
-      console.error('❌ Updates:', updates);
     }
   }, []);
 
   const retryOperation = useCallback((collectionId: string) => {
     try {
       console.log('🔄 SUPERVISOR Manual retry triggered for:', collectionId);
+      // Clear error status and let supervisor re-queue the operation
+      setOperationStatus(prev => {
+        const next = { ...prev };
+        delete next[collectionId];
+        return next;
+      });
       runSupervisor();
     } catch (error) {
       console.error('❌ SUPERVISOR Error in retryOperation:', error);
