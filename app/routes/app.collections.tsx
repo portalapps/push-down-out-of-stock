@@ -380,6 +380,34 @@ export default function Collections() {
   // Processing state for collection sorting
   const [processStatus, setProcessStatus] = useState<Record<string, 'idle' | 'processing' | 'ready' | 'error'>>({});
   
+  // Add timeout cleanup for stuck processing states
+  React.useEffect(() => {
+    const interval = setInterval(() => {
+      setProcessStatus(prev => {
+        const updated = { ...prev };
+        let hasChanges = false;
+        const now = Date.now();
+        
+        // Clear any processing states that have been active for more than 10 seconds
+        Object.entries(updated).forEach(([id, status]) => {
+          if (status === 'processing') {
+            // Check if this collection has been processing too long without pending operations
+            const hasPendingOperation = pendingOperationsRef.current?.has(id);
+            if (!hasPendingOperation) {
+              console.log('⏰ Timeout: Clearing stuck processing state for:', id);
+              delete updated[id];
+              hasChanges = true;
+            }
+          }
+        });
+        
+        return hasChanges ? updated : prev;
+      });
+    }, 5000); // Check every 5 seconds
+    
+    return () => clearInterval(interval);
+  }, []);
+  
   // Add global debugging
   React.useEffect(() => {
     console.log('🔧 Setting up global event debugging...');
@@ -597,6 +625,27 @@ export default function Collections() {
         // Log remaining pending operations
         console.log('🧹 Remaining pending collections:', Array.from(pendingOperationsRef.current?.keys() || []));
         console.log('🧹 Remaining request order:', requestOrderRef.current);
+        
+        // Clean up any collections that might be stuck in processing state
+        // This handles the case where rapid collection changes leave some collections spinning
+        if (pendingOperationsRef.current && pendingOperationsRef.current.size === 0) {
+          console.log('🧹 No more pending operations - clearing any stuck processing states');
+          setProcessStatus(prev => {
+            const updated = { ...prev };
+            let hasChanges = false;
+            
+            // Reset any collections still in processing state when queue is empty
+            Object.entries(updated).forEach(([id, status]) => {
+              if (status === 'processing') {
+                console.log('🧹 Clearing stuck processing state for:', id);
+                delete updated[id];
+                hasChanges = true;
+              }
+            });
+            
+            return hasChanges ? updated : prev;
+          });
+        }
       }
     }
   }}, [fetcher.state, fetcher.data, fetcher.formData, collectionSettings]);
