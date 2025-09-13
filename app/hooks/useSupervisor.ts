@@ -118,7 +118,10 @@ export function useSupervisor(initialCollections: any[], existingSettings: any[]
       if (responseTag && isTagValid(responseTag, uiState)) {
         const { collectionId } = responseTag;
         
-        console.log('✅ Valid response tag for:', collectionId);
+        console.log('✅ SUPERVISOR Valid response tag for:', collectionId, {
+          responseState: responseTag.targetState,
+          currentUIState: uiState[collectionId]
+        });
         
         // Update implemented state to match UI state
         setImplementedState(prev => ({
@@ -126,20 +129,54 @@ export function useSupervisor(initialCollections: any[], existingSettings: any[]
           [collectionId]: { ...uiState[collectionId] }
         }));
         
-        // Update operation status
+        // Update operation status with server response data
+        const updatedStatus = updateOperationStatus(
+          prev[collectionId] || initializeOperationStatus(collectionId),
+          mainFetcher.data.success,
+          mainFetcher.data.error
+        );
+        
+        // Add server response data for toast messages
+        if (mainFetcher.data.success && mainFetcher.data.stats) {
+          updatedStatus.serverResponseData = mainFetcher.data.stats;
+        }
+        
         setOperationStatus(prev => ({
           ...prev,
-          [collectionId]: updateOperationStatus(
-            prev[collectionId] || initializeOperationStatus(collectionId),
-            mainFetcher.data.success,
-            mainFetcher.data.error
-          )
+          [collectionId]: updatedStatus
         }));
         
         // Clean up pending operation
         pendingOperationsRef.current.delete(collectionId);
       } else {
-        console.log('⚠️ Invalid or outdated response tag, ignoring');
+        console.log('⚠️ SUPERVISOR Invalid or outdated response tag, ignoring:', {
+          responseTag,
+          hasTag: !!responseTag,
+          uiStateKeys: Object.keys(uiState),
+          tagValid: responseTag ? isTagValid(responseTag, uiState) : false
+        });
+        
+        // If we have a response tag but it's invalid, it means the operation completed
+        // but the UI state has changed since then. We should still clear any processing status
+        // to prevent stuck spinners
+        if (responseTag && responseTag.collectionId) {
+          const collectionId = responseTag.collectionId;
+          console.log('🧹 SUPERVISOR Clearing processing status for outdated response:', collectionId);
+          
+          setOperationStatus(prev => {
+            const currentStatus = prev[collectionId];
+            if (currentStatus && currentStatus.status === 'processing') {
+              // Clear the processing status - supervisor will detect the difference and retry if needed
+              const updated = { ...prev };
+              delete updated[collectionId];
+              return updated;
+            }
+            return prev;
+          });
+          
+          // Remove from pending operations so supervisor can detect difference and retry
+          pendingOperationsRef.current.delete(collectionId);
+        }
       }
     }
   }, [mainFetcher.state, mainFetcher.data, uiState]);

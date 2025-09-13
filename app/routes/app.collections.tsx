@@ -383,7 +383,12 @@ export const action = async ({ request }: ActionFunctionArgs) => {
       return json({ 
         success: true, 
         operationTag,
-        message: enabled ? 'Settings saved and collection sorted' : 'Settings saved'
+        message: enabled ? 'Settings saved and collection sorted' : 'Settings saved',
+        stats: enabled ? {
+          inStockCount: inStock.length,
+          outOfStockCount: outOfStock.length,
+          totalProducts: sortedProductIds.length
+        } : null
       });
     } catch (error) {
       console.error('❌ SUPERVISOR Error saving collection setting:', error);
@@ -431,21 +436,28 @@ export default function Collections() {
   });
   
   // SUPERVISOR handles all fetcher response processing automatically
-  // Toast messages for user feedback
+  // Toast messages for user feedback with collection names and stock counts
   React.useEffect(() => {
     Object.entries(operationStatus).forEach(([collectionId, status]) => {
       if (status.status === 'ready') {
+        // Find collection name
+        const collection = collections.find(c => c.id === collectionId);
+        const collectionName = collection?.title || collectionId;
+        
         const isEnabled = collectionSettings[collectionId]?.enabled;
-        if (isEnabled) {
-          setToastMessage(`Collection ${collectionId} sorted and ready!`);
+        if (isEnabled && status.serverResponseData) {
+          const { inStockCount, outOfStockCount } = status.serverResponseData;
+          setToastMessage(`${collectionName} sorted! ${inStockCount} in-stock, ${outOfStockCount} moved to bottom`);
         } else {
-          setToastMessage(`Collection ${collectionId} settings saved!`);
+          setToastMessage(`${collectionName} settings saved!`);
         }
       } else if (status.status === 'error') {
-        setToastMessage(`Operation failed for collection ${collectionId}: ${status.lastError || 'Unknown error'}`);
+        const collection = collections.find(c => c.id === collectionId);
+        const collectionName = collection?.title || collectionId;
+        setToastMessage(`Operation failed for ${collectionName}: ${status.lastError || 'Unknown error'}`);
       }
     });
-  }, [operationStatus, collectionSettings]);
+  }, [operationStatus, collectionSettings, collections]);
   
   // Early return for debugging (moved after state declarations)
   if (!collections || collections.length === 0) {

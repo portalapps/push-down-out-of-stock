@@ -15,6 +15,11 @@ export interface OperationStatus {
   timestamp: number;
   retryCount: number;
   lastError?: string;
+  serverResponseData?: {
+    inStockCount: number;
+    outOfStockCount: number;
+    totalProducts: number;
+  };
 }
 
 export type OperationStatusMap = Record<string, OperationStatus>;
